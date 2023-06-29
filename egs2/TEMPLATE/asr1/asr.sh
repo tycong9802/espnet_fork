@@ -41,6 +41,7 @@ gpu_inference=false  # Whether to perform gpu decoding.
 dumpdir=dump         # Directory to dump features.
 expdir=exp           # Directory to save experiments.
 python=python3       # Specify python to execute espnet commands.
+model_exporting=false # Whether to export ONNX/Traced PyTorch model. If true, only exporting models without doing inference
 
 # Data preparation related
 local_data_opts= # The options given to local/data.sh.
@@ -183,6 +184,7 @@ Options:
     --dumpdir        # Directory to dump features (default="${dumpdir}").
     --expdir         # Directory to save experiments (default="${expdir}").
     --python         # Specify python to execute espnet commands (default="${python}").
+    --model_exporting # Whether to export ONNX/Traced PyTorch model. If true, only exporting models without doing inference. (default="${model_exporting}")
 
     # Data preparation related
     --local_data_opts # The options given to local/data.sh (default="${local_data_opts}").
@@ -1481,7 +1483,7 @@ if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ] && ! [[ " ${skip_stages} " =~
         fi
     fi
     if "${use_ngram}"; then
-         _opts+="--ngram_file ${ngram_exp}/${inference_ngram}"
+        _opts+="--ngram_file ${ngram_exp}/${inference_ngram}"
     fi
 
     # 2. Generate run.sh
@@ -1537,10 +1539,10 @@ if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ] && ! [[ " ${skip_stages} " =~
         key_file=${_data}/${_scp}
         split_scps=""
         if "${use_k2}"; then
-          # Now only _nj=1 is verified if using k2
-          _nj=1
+        # Now only _nj=1 is verified if using k2
+        _nj=1
         else
-          _nj=$(min "${inference_nj}" "$(<${key_file} wc -l)")
+        _nj=$(min "${inference_nj}" "$(<${key_file} wc -l)")
         fi
 
         for n in $(seq "${_nj}"); do
@@ -1596,243 +1598,246 @@ if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ] && ! [[ " ${skip_stages} " =~
     done
 fi
 
+if ${model_exporting}; then
+    log "Model has already been exported!"
+else
+    if [ ${stage} -le 13 ] && [ ${stop_stage} -ge 13 ] && ! [[ " ${skip_stages} " =~ [[:space:]]13[[:space:]] ]]; then
+        log "Stage 13: Scoring"
+        if [ "${token_type}" = phn ]; then
+            log "Error: Not implemented for token_type=phn"
+            exit 1
+        fi
 
-if [ ${stage} -le 13 ] && [ ${stop_stage} -ge 13 ] && ! [[ " ${skip_stages} " =~ [[:space:]]13[[:space:]] ]]; then
-    log "Stage 13: Scoring"
-    if [ "${token_type}" = phn ]; then
-        log "Error: Not implemented for token_type=phn"
-        exit 1
-    fi
+        if "${eval_valid_set}"; then
+            _dsets="org/${valid_set} ${test_sets}"
+        else
+            _dsets="${test_sets}"
+        fi
+        for dset in ${_dsets}; do
+            _data="${data_feats}/${dset}"
+            _dir="${asr_exp}/${inference_tag}/${dset}"
 
-    if "${eval_valid_set}"; then
-        _dsets="org/${valid_set} ${test_sets}"
-    else
-        _dsets="${test_sets}"
-    fi
-    for dset in ${_dsets}; do
-        _data="${data_feats}/${dset}"
-        _dir="${asr_exp}/${inference_tag}/${dset}"
+            for _tok_type in "char" "word" "bpe"; do
+                [ "${_tok_type}" = bpe ] && [ ! -f "${bpemodel}" ] && continue
 
-        for _tok_type in "char" "word" "bpe"; do
-            [ "${_tok_type}" = bpe ] && [ ! -f "${bpemodel}" ] && continue
+                _opts="--token_type ${_tok_type} "
+                if [ "${_tok_type}" = "char" ] || [ "${_tok_type}" = "word" ]; then
+                    _type="${_tok_type:0:1}er"
+                    _opts+="--non_linguistic_symbols ${nlsyms_txt} "
+                    _opts+="--remove_non_linguistic_symbols true "
 
-            _opts="--token_type ${_tok_type} "
-            if [ "${_tok_type}" = "char" ] || [ "${_tok_type}" = "word" ]; then
-                _type="${_tok_type:0:1}er"
-                _opts+="--non_linguistic_symbols ${nlsyms_txt} "
-                _opts+="--remove_non_linguistic_symbols true "
+                elif [ "${_tok_type}" = "bpe" ]; then
+                    _type="ter"
+                    _opts+="--bpemodel ${bpemodel} "
 
-            elif [ "${_tok_type}" = "bpe" ]; then
-                _type="ter"
-                _opts+="--bpemodel ${bpemodel} "
+                else
+                    log "Error: unsupported token type ${_tok_type}"
+                fi
 
-            else
-                log "Error: unsupported token type ${_tok_type}"
-            fi
+                _scoredir="${_dir}/score_${_type}"
+                mkdir -p "${_scoredir}"
 
-            _scoredir="${_dir}/score_${_type}"
-            mkdir -p "${_scoredir}"
+                # shellcheck disable=SC2068
+                for ref_txt in ${ref_text_files[@]}; do
+                    # Note(simpleoier): to get the suffix after text, e.g. "text_spk1" -> "_spk1"
+                    suffix=$(echo ${ref_txt} | sed 's/text//')
 
-            # shellcheck disable=SC2068
-            for ref_txt in ${ref_text_files[@]}; do
-                # Note(simpleoier): to get the suffix after text, e.g. "text_spk1" -> "_spk1"
-                suffix=$(echo ${ref_txt} | sed 's/text//')
+                    # Tokenize text to ${_tok_type} level
+                    paste \
+                        <(<"${_data}/${ref_txt}" \
+                            ${python} -m espnet2.bin.tokenize_text  \
+                                -f 2- --input - --output - \
+                                --cleaner "${cleaner}" \
+                                ${_opts} \
+                                ) \
+                        <(<"${_data}/utt2spk" awk '{ print "(" $2 "-" $1 ")" }') \
+                            >"${_scoredir}/ref${suffix:-${suffix}}.trn"
 
-                # Tokenize text to ${_tok_type} level
-                paste \
-                    <(<"${_data}/${ref_txt}" \
-                        ${python} -m espnet2.bin.tokenize_text  \
-                            -f 2- --input - --output - \
-                            --cleaner "${cleaner}" \
-                            ${_opts} \
-                            ) \
-                    <(<"${_data}/utt2spk" awk '{ print "(" $2 "-" $1 ")" }') \
-                        >"${_scoredir}/ref${suffix:-${suffix}}.trn"
+                    # NOTE(kamo): Don't use cleaner for hyp
+                    paste \
+                        <(<"${_dir}/${ref_txt}"  \
+                            ${python} -m espnet2.bin.tokenize_text  \
+                                -f 2- --input - --output - \
+                                ${_opts} \
+                                --cleaner "${hyp_cleaner}" \
+                                ) \
+                        <(<"${_data}/utt2spk" awk '{ print "(" $2 "-" $1 ")" }') \
+                            >"${_scoredir}/hyp${suffix:-${suffix}}.trn"
 
-                # NOTE(kamo): Don't use cleaner for hyp
-                paste \
-                    <(<"${_dir}/${ref_txt}"  \
-                        ${python} -m espnet2.bin.tokenize_text  \
-                            -f 2- --input - --output - \
-                            ${_opts} \
-                            --cleaner "${hyp_cleaner}" \
-                            ) \
-                    <(<"${_data}/utt2spk" awk '{ print "(" $2 "-" $1 ")" }') \
-                        >"${_scoredir}/hyp${suffix:-${suffix}}.trn"
-
-            done
-
-            # Note(simpleoier): score across all possible permutations
-            if [ ${num_ref} -gt 1 ] && [ -n "${suffix}" ]; then
-                for i in $(seq ${num_ref}); do
-                    for j in $(seq ${num_inf}); do
-                        sclite \
-                            ${score_opts} \
-                            -r "${_scoredir}/ref_spk${i}.trn" trn \
-                            -h "${_scoredir}/hyp_spk${j}.trn" trn \
-                            -i rm -o all stdout > "${_scoredir}/result_r${i}h${j}.txt"
-                    done
                 done
-                # Generate the oracle permutation hyp.trn and ref.trn
-                pyscripts/utils/eval_perm_free_error.py --num-spkrs ${num_ref} \
-                    --results-dir ${_scoredir}
-            fi
 
-            sclite \
-                ${score_opts} \
-                -r "${_scoredir}/ref.trn" trn \
-                -h "${_scoredir}/hyp.trn" trn \
-                -i rm -o all stdout > "${_scoredir}/result.txt"
+                # Note(simpleoier): score across all possible permutations
+                if [ ${num_ref} -gt 1 ] && [ -n "${suffix}" ]; then
+                    for i in $(seq ${num_ref}); do
+                        for j in $(seq ${num_inf}); do
+                            sclite \
+                                ${score_opts} \
+                                -r "${_scoredir}/ref_spk${i}.trn" trn \
+                                -h "${_scoredir}/hyp_spk${j}.trn" trn \
+                                -i rm -o all stdout > "${_scoredir}/result_r${i}h${j}.txt"
+                        done
+                    done
+                    # Generate the oracle permutation hyp.trn and ref.trn
+                    pyscripts/utils/eval_perm_free_error.py --num-spkrs ${num_ref} \
+                        --results-dir ${_scoredir}
+                fi
 
-            log "Write ${_type} result in ${_scoredir}/result.txt"
-            grep -e Avg -e SPKR -m 2 "${_scoredir}/result.txt"
+                sclite \
+                    ${score_opts} \
+                    -r "${_scoredir}/ref.trn" trn \
+                    -h "${_scoredir}/hyp.trn" trn \
+                    -i rm -o all stdout > "${_scoredir}/result.txt"
+
+                log "Write ${_type} result in ${_scoredir}/result.txt"
+                grep -e Avg -e SPKR -m 2 "${_scoredir}/result.txt"
+            done
         done
-    done
 
-    [ -f local/score.sh ] && local/score.sh ${local_score_opts} "${asr_exp}"
+        [ -f local/score.sh ] && local/score.sh ${local_score_opts} "${asr_exp}"
 
-    # Show results in Markdown syntax
-    scripts/utils/show_asr_result.sh "${asr_exp}" > "${asr_exp}"/RESULTS.md
-    cat "${asr_exp}"/RESULTS.md
+        # Show results in Markdown syntax
+        scripts/utils/show_asr_result.sh "${asr_exp}" > "${asr_exp}"/RESULTS.md
+        cat "${asr_exp}"/RESULTS.md
 
-fi
-
-
-packed_model="${asr_exp}/${asr_exp##*/}_${inference_asr_model%.*}.zip"
-if [ ${stage} -le 14 ] && [ ${stop_stage} -ge 14 ] && ! [[ " ${skip_stages} " =~ [[:space:]]14[[:space:]] ]]; then
-    log "Stage 14: Pack model: ${packed_model}"
-
-    _opts=
-    if "${use_lm}"; then
-        _opts+="--lm_train_config ${lm_exp}/config.yaml "
-        _opts+="--lm_file ${lm_exp}/${inference_lm} "
-        _opts+="--option ${lm_exp}/perplexity_test/ppl "
-        _opts+="--option ${lm_exp}/images "
     fi
-    if [ "${feats_normalize}" = global_mvn ]; then
-        _opts+="--option ${asr_stats_dir}/train/feats_stats.npz "
+
+
+
+    packed_model="${asr_exp}/${asr_exp##*/}_${inference_asr_model%.*}.zip"
+    if [ ${stage} -le 14 ] && [ ${stop_stage} -ge 14 ] && ! [[ " ${skip_stages} " =~ [[:space:]]14[[:space:]] ]]; then
+        log "Stage 14: Pack model: ${packed_model}"
+
+        _opts=
+        if "${use_lm}"; then
+            _opts+="--lm_train_config ${lm_exp}/config.yaml "
+            _opts+="--lm_file ${lm_exp}/${inference_lm} "
+            _opts+="--option ${lm_exp}/perplexity_test/ppl "
+            _opts+="--option ${lm_exp}/images "
+        fi
+        if [ "${feats_normalize}" = global_mvn ]; then
+            _opts+="--option ${asr_stats_dir}/train/feats_stats.npz "
+        fi
+        if [ "${token_type}" = bpe ]; then
+            _opts+="--option ${bpemodel} "
+        fi
+        if [ "${nlsyms_txt}" != none ]; then
+            _opts+="--option ${nlsyms_txt} "
+        fi
+        # shellcheck disable=SC2086
+        ${python} -m espnet2.bin.pack asr \
+            --asr_train_config "${asr_exp}"/config.yaml \
+            --asr_model_file "${asr_exp}"/"${inference_asr_model}" \
+            ${_opts} \
+            --option "${asr_exp}"/RESULTS.md \
+            --option "${asr_exp}"/images \
+            --outpath "${packed_model}"
     fi
-    if [ "${token_type}" = bpe ]; then
-        _opts+="--option ${bpemodel} "
-    fi
-    if [ "${nlsyms_txt}" != none ]; then
-        _opts+="--option ${nlsyms_txt} "
-    fi
-    # shellcheck disable=SC2086
-    ${python} -m espnet2.bin.pack asr \
-        --asr_train_config "${asr_exp}"/config.yaml \
-        --asr_model_file "${asr_exp}"/"${inference_asr_model}" \
-        ${_opts} \
-        --option "${asr_exp}"/RESULTS.md \
-        --option "${asr_exp}"/images \
-        --outpath "${packed_model}"
-fi
 
 
-if [ ${stage} -le 15 ] && [ ${stop_stage} -ge 15 ] && ! [[ " ${skip_stages} " =~ [[:space:]]15[[:space:]] ]]; then
-    log "Stage 15: Upload model to Zenodo: ${packed_model}"
-    log "Warning: Upload model to Zenodo will be deprecated. We encourage to use Hugging Face"
+    if [ ${stage} -le 15 ] && [ ${stop_stage} -ge 15 ] && ! [[ " ${skip_stages} " =~ [[:space:]]15[[:space:]] ]]; then
+        log "Stage 15: Upload model to Zenodo: ${packed_model}"
+        log "Warning: Upload model to Zenodo will be deprecated. We encourage to use Hugging Face"
 
-    # To upload your model, you need to do:
-    #   1. Sign up to Zenodo: https://zenodo.org/
-    #   2. Create access token: https://zenodo.org/account/settings/applications/tokens/new/
-    #   3. Set your environment: % export ACCESS_TOKEN="<your token>"
+        # To upload your model, you need to do:
+        #   1. Sign up to Zenodo: https://zenodo.org/
+        #   2. Create access token: https://zenodo.org/account/settings/applications/tokens/new/
+        #   3. Set your environment: % export ACCESS_TOKEN="<your token>"
 
-    if command -v git &> /dev/null; then
-        _creator_name="$(git config user.name)"
-        _checkout="
-git checkout $(git show -s --format=%H)"
+        if command -v git &> /dev/null; then
+            _creator_name="$(git config user.name)"
+            _checkout="
+    git checkout $(git show -s --format=%H)"
 
-    else
-        _creator_name="$(whoami)"
-        _checkout=""
-    fi
-    # /some/where/espnet/egs2/foo/asr1/ -> foo/asr1
-    _task="$(pwd | rev | cut -d/ -f2 | rev)"
-    # foo/asr1 -> foo
-    _corpus="${_task%/*}"
-    _model_name="${_creator_name}/${_corpus}_$(basename ${packed_model} .zip)"
+        else
+            _creator_name="$(whoami)"
+            _checkout=""
+        fi
+        # /some/where/espnet/egs2/foo/asr1/ -> foo/asr1
+        _task="$(pwd | rev | cut -d/ -f2 | rev)"
+        # foo/asr1 -> foo
+        _corpus="${_task%/*}"
+        _model_name="${_creator_name}/${_corpus}_$(basename ${packed_model} .zip)"
 
-    # Generate description file
-    cat << EOF > "${asr_exp}"/description
-This model was trained by ${_creator_name} using ${_task} recipe in <a href="https://github.com/espnet/espnet/">espnet</a>.
-<p>&nbsp;</p>
-<ul>
-<li><strong>Python API</strong><pre><code class="language-python">See https://github.com/espnet/espnet_model_zoo</code></pre></li>
-<li><strong>Evaluate in the recipe</strong><pre>
-<code class="language-bash">git clone https://github.com/espnet/espnet
-cd espnet${_checkout}
-pip install -e .
-cd $(pwd | rev | cut -d/ -f1-3 | rev)
-./run.sh --skip_data_prep false --skip_train true --download_model ${_model_name}</code>
-</pre></li>
-<li><strong>Results</strong><pre><code>$(cat "${asr_exp}"/RESULTS.md)</code></pre></li>
-<li><strong>ASR config</strong><pre><code>$(cat "${asr_exp}"/config.yaml)</code></pre></li>
-<li><strong>LM config</strong><pre><code>$(if ${use_lm}; then cat "${lm_exp}"/config.yaml; else echo NONE; fi)</code></pre></li>
-</ul>
+        # Generate description file
+        cat << EOF > "${asr_exp}"/description
+        This model was trained by ${_creator_name} using ${_task} recipe in <a href="https://github.com/espnet/espnet/">espnet</a>.
+        <p>&nbsp;</p>
+        <ul>
+        <li><strong>Python API</strong><pre><code class="language-python">See https://github.com/espnet/espnet_model_zoo</code></pre></li>
+        <li><strong>Evaluate in the recipe</strong><pre>
+        <code class="language-bash">git clone https://github.com/espnet/espnet
+        cd espnet${_checkout}
+        pip install -e .
+        cd $(pwd | rev | cut -d/ -f1-3 | rev)
+        ./run.sh --skip_data_prep false --skip_train true --download_model ${_model_name}</code>
+        </pre></li>
+        <li><strong>Results</strong><pre><code>$(cat "${asr_exp}"/RESULTS.md)</code></pre></li>
+        <li><strong>ASR config</strong><pre><code>$(cat "${asr_exp}"/config.yaml)</code></pre></li>
+        <li><strong>LM config</strong><pre><code>$(if ${use_lm}; then cat "${lm_exp}"/config.yaml; else echo NONE; fi)</code></pre></li>
+        </ul>
 EOF
 
-    # NOTE(kamo): The model file is uploaded here, but not published yet.
-    #   Please confirm your record at Zenodo and publish it by yourself.
+        # NOTE(kamo): The model file is uploaded here, but not published yet.
+        #   Please confirm your record at Zenodo and publish it by yourself.
 
-    # shellcheck disable=SC2086
-    espnet_model_zoo_upload \
-        --file "${packed_model}" \
-        --title "ESPnet2 pretrained model, ${_model_name}, fs=${fs}, lang=${lang}" \
-        --description_file "${asr_exp}"/description \
-        --creator_name "${_creator_name}" \
-        --license "CC-BY-4.0" \
-        --use_sandbox false \
-        --publish false
-fi
+        # shellcheck disable=SC2086
+        espnet_model_zoo_upload \
+            --file "${packed_model}" \
+            --title "ESPnet2 pretrained model, ${_model_name}, fs=${fs}, lang=${lang}" \
+            --description_file "${asr_exp}"/description \
+            --creator_name "${_creator_name}" \
+            --license "CC-BY-4.0" \
+            --use_sandbox false \
+            --publish false
+    fi
 
 
-if [ ${stage} -le 16 ] && [ ${stop_stage} -ge 16 ] && ! [[ " ${skip_stages} " =~ [[:space:]]16[[:space:]] ]]; then
-    [ -z "${hf_repo}" ] && \
-        log "ERROR: You need to setup the variable hf_repo with the name of the repository located at HuggingFace, follow the following steps described here https://github.com/espnet/espnet/blob/master/CONTRIBUTING.md#132-espnet2-recipes" && \
-    exit 1
-    log "Stage 16: Upload model to HuggingFace: ${hf_repo}"
-
-    gitlfs=$(git lfs --version 2> /dev/null || true)
-    [ -z "${gitlfs}" ] && \
-        log "ERROR: You need to install git-lfs first" && \
+    if [ ${stage} -le 16 ] && [ ${stop_stage} -ge 16 ] && ! [[ " ${skip_stages} " =~ [[:space:]]16[[:space:]] ]]; then
+        [ -z "${hf_repo}" ] && \
+            log "ERROR: You need to setup the variable hf_repo with the name of the repository located at HuggingFace, follow the following steps described here https://github.com/espnet/espnet/blob/master/CONTRIBUTING.md#132-espnet2-recipes" && \
         exit 1
+        log "Stage 16: Upload model to HuggingFace: ${hf_repo}"
 
-    dir_repo=${expdir}/hf_${hf_repo//"/"/"_"}
-    [ ! -d "${dir_repo}" ] && git clone https://huggingface.co/${hf_repo} ${dir_repo}
+        gitlfs=$(git lfs --version 2> /dev/null || true)
+        [ -z "${gitlfs}" ] && \
+            log "ERROR: You need to install git-lfs first" && \
+            exit 1
 
-    if command -v git &> /dev/null; then
-        _creator_name="$(git config user.name)"
-        _checkout="git checkout $(git show -s --format=%H)"
-    else
-        _creator_name="$(whoami)"
-        _checkout=""
+        dir_repo=${expdir}/hf_${hf_repo//"/"/"_"}
+        [ ! -d "${dir_repo}" ] && git clone https://huggingface.co/${hf_repo} ${dir_repo}
+
+        if command -v git &> /dev/null; then
+            _creator_name="$(git config user.name)"
+            _checkout="git checkout $(git show -s --format=%H)"
+        else
+            _creator_name="$(whoami)"
+            _checkout=""
+        fi
+        # /some/where/espnet/egs2/foo/asr1/ -> foo/asr1
+        _task="$(pwd | rev | cut -d/ -f2 | rev)"
+        # foo/asr1 -> foo
+        _corpus="${_task%/*}"
+        _model_name="${_creator_name}/${_corpus}_$(basename ${packed_model} .zip)"
+
+        # copy files in ${dir_repo}
+        unzip -o ${packed_model} -d ${dir_repo}
+        # Generate description file
+        # shellcheck disable=SC2034
+        hf_task=automatic-speech-recognition
+        # shellcheck disable=SC2034
+        espnet_task=ASR
+        # shellcheck disable=SC2034
+        task_exp=${asr_exp}
+        eval "echo \"$(cat scripts/utils/TEMPLATE_HF_Readme.md)\"" > "${dir_repo}"/README.md
+
+        this_folder=${PWD}
+        cd ${dir_repo}
+        if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "Update model"
+        fi
+        git push
+        cd ${this_folder}
     fi
-    # /some/where/espnet/egs2/foo/asr1/ -> foo/asr1
-    _task="$(pwd | rev | cut -d/ -f2 | rev)"
-    # foo/asr1 -> foo
-    _corpus="${_task%/*}"
-    _model_name="${_creator_name}/${_corpus}_$(basename ${packed_model} .zip)"
-
-    # copy files in ${dir_repo}
-    unzip -o ${packed_model} -d ${dir_repo}
-    # Generate description file
-    # shellcheck disable=SC2034
-    hf_task=automatic-speech-recognition
-    # shellcheck disable=SC2034
-    espnet_task=ASR
-    # shellcheck disable=SC2034
-    task_exp=${asr_exp}
-    eval "echo \"$(cat scripts/utils/TEMPLATE_HF_Readme.md)\"" > "${dir_repo}"/README.md
-
-    this_folder=${PWD}
-    cd ${dir_repo}
-    if [ -n "$(git status --porcelain)" ]; then
-        git add .
-        git commit -m "Update model"
-    fi
-    git push
-    cd ${this_folder}
 fi
-
 log "Successfully finished. [elapsed=${SECONDS}s]"

@@ -410,7 +410,6 @@ class Speech2Text:
 
         # Modify from the various length to the fixed length for the input
         lengths = speech.new_full([1], dtype=torch.long, fill_value=200000)
-        print(f'DEBUG: lenght of speech: {lengths}')
         audio_input = torch.zeros([1, 200000])
         for i in range(len(speech[0])-1):
             audio_input[0,i] = speech[0,i]
@@ -426,7 +425,6 @@ class Speech2Text:
         # TODO:
         # Export to the ONNX model, **batch as input, make sure the input is correct and make it as fixed length. model is: self.ars_model
         # torch.onnx.export(self.asr_model, batch, "testing_export.onnx", export_params=True, opset_version=12,do_constant_folding=True,input_names = ['speech', 'speech_lengths'], output_names = ['output'])
-        # logging.info('DEBUGGING: ONNX model has been exported!')
 
         feats, feats_lengths = self._extract_feats(speech, lengths)
         batch = {"speech": speech, "feats":feats, "feats_lengths": feats_lengths}
@@ -435,15 +433,22 @@ class Speech2Text:
         feats = to_device(feats, device=self.device)
         feats_lengths = to_device(feats_lengths, device=self.device)
 
-        torch.onnx.export(self.asr_model, (speech, feats, feats_lengths), "conformer_without_stft.onnx", export_params=True, opset_version=12,do_constant_folding=True,input_names = ['speech', 'feats', 'feats_lengths'], output_names = ['encoder_out', 'encoder_out_lens'])
-        print(f'Exported model to "conformer_without_stft.onnx" successful!')
+        import os
+        onnx_model_name = 'conformer_without_stft.onnx'
+        onnx_model = os.path.join(os.getcwd(), onnx_model_name)
+        if not os.path.exists(onnx_model):
+            torch.onnx.export(self.asr_model, (speech, feats, feats_lengths), onnx_model, export_params=True, opset_version=12,do_constant_folding=True,input_names = ['speech', 'feats', 'feats_lengths'], output_names = ['encoder_out', 'encoder_out_lens'])
+        logging.info(f'ONNX model has been exported at: {onnx_model}')
 
 
         # Trace the model without stft
-        traced_model = torch.jit.trace(self.asr_model, (speech, feats, feats_lengths))
-        traced_model = traced_model.to(self.device)
-        torch.jit.save(traced_model, 'traced_conformer_without_stft.pt')
-        print(f'Traced Model has been saved as "traced_conformer_without_stft.pt"')
+        traced_model_wo_stft_name = 'traced_conformer_without_stft.pt'
+        traced_model = os.path.join(os.getcwd(), traced_model_wo_stft_name)
+        if not os.path.exists(traced_model):
+            traced_model = torch.jit.trace(self.asr_model, (speech, feats, feats_lengths))
+            traced_model = traced_model.to(self.device)
+            torch.jit.save(traced_model, traced_model_wo_stft_name)
+        logging.info(f'Traced Model has been saved at: {traced_model}')
 
         sys.exit()
 

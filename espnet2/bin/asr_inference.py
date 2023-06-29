@@ -12,6 +12,8 @@ import torch
 import torch.quantization
 from typeguard import check_argument_types, check_return_type
 
+from espnet2.asr.frontend.default import DefaultFrontend
+
 from espnet2.asr.decoder.s4_decoder import S4Decoder
 from espnet2.asr.transducer.beam_search_transducer import BeamSearchTransducer
 from espnet2.asr.transducer.beam_search_transducer import (
@@ -102,8 +104,10 @@ class Speech2Text:
         hugging_face_decoder: bool = False,
         hugging_face_decoder_max_length: int = 256,
         time_sync: bool = False,
-        multi_asr: bool = False,
+        multi_asr: bool = False
+        # frontend: Optional[DefaultFrontend]
     ):
+        self.frontend = DefaultFrontend()
         assert check_argument_types()
 
         task = ASRTask if not enh_s2t_task else EnhS2TTask
@@ -122,6 +126,7 @@ class Speech2Text:
 
         # 1. Build ASR model
         scorers = {}
+
         asr_model, asr_train_args = task.build_model_from_file(
             asr_train_config, asr_model_file, device
         )
@@ -371,6 +376,9 @@ class Speech2Text:
         self.enh_s2t_task = enh_s2t_task
         self.multi_asr = multi_asr
 
+        torch.save(asr_model, '/home/zhu05/scratch/2-working/espnet_conformer/espnet/ASR_MODEL_STRCUTRE.pth')
+        # sys.exit()
+
     @torch.no_grad()
     def __call__(
         self, speech: Union[torch.Tensor, np.ndarray]
@@ -398,7 +406,16 @@ class Speech2Text:
         # data: (Nsamples,) -> (1, Nsamples)
         speech = speech.unsqueeze(0).to(getattr(torch, self.dtype))
         # lengths: (1,)
-        lengths = speech.new_full([1], dtype=torch.long, fill_value=speech.size(1))
+        # lengths = speech.new_full([1], dtype=torch.long, fill_value=speech.size(1))
+
+        # Modify from the various length to the fixed length for the input
+        lengths = speech.new_full([1], dtype=torch.long, fill_value=200000)
+        print(f'DEBUG: lenght of speech: {lengths}')
+        audio_input = torch.zeros([1, 200000])
+        for i in range(len(speech[0])-1):
+            audio_input[0,i] = speech[0,i]
+        speech = audio_input
+
         batch = {"speech": speech, "speech_lengths": lengths}
         logging.info("speech length: " + str(speech.size(1)))
 
@@ -406,7 +423,31 @@ class Speech2Text:
         batch = to_device(batch, device=self.device)
 
         # b. Forward Encoder
-        enc, enc_olens = self.asr_model.encode(**batch)
+        # TODO:
+        # Export to the ONNX model, **batch as input, make sure the input is correct and make it as fixed length. model is: self.ars_model
+        # torch.onnx.export(self.asr_model, batch, "testing_export.onnx", export_params=True, opset_version=12,do_constant_folding=True,input_names = ['speech', 'speech_lengths'], output_names = ['output'])
+        # logging.info('DEBUGGING: ONNX model has been exported!')
+
+        feats, feats_lengths = self._extract_feats(speech, lengths)
+        batch = {"speech": speech, "feats":feats, "feats_lengths": feats_lengths}
+        batch = to_device(batch, device=self.device)
+        speech = to_device(speech, device=self.device)
+        feats = to_device(feats, device=self.device)
+        feats_lengths = to_device(feats_lengths, device=self.device)
+
+        torch.onnx.export(self.asr_model, (speech, feats, feats_lengths), "conformer_without_stft.onnx", export_params=True, opset_version=12,do_constant_folding=True,input_names = ['speech', 'feats', 'feats_lengths'], output_names = ['encoder_out', 'encoder_out_lens'])
+        print(f'Exported model to "conformer_without_stft.onnx" successful!')
+
+
+        # Trace the model without stft
+        traced_model = torch.jit.trace(self.asr_model, (speech, feats, feats_lengths))
+        traced_model = traced_model.to(self.device)
+        torch.jit.save(traced_model, 'traced_conformer_without_stft.pt')
+        print(f'Traced Model has been saved as "traced_conformer_without_stft.pt"')
+
+        sys.exit()
+
+        enc, enc_olens = self.asr_model(**batch)  # @ME encode context to asr_model's forward. Then replace self.asr_model.encode() -> self.asr_model
         if self.multi_asr:
             enc = enc.unbind(dim=1)  # (batch, num_inf, ...) -> num_inf x [batch, ...]
         if self.enh_s2t_task or self.multi_asr:
@@ -447,6 +488,28 @@ class Speech2Text:
             assert check_return_type(results)
 
         return results
+
+
+    def _extract_feats(
+        self, speech: torch.Tensor, speech_lengths: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        assert speech_lengths.dim() == 1, speech_lengths.shape
+
+        # for data-parallel
+        speech = speech[:, : speech_lengths.max()]
+
+        # if self.frontend is not None:
+        #     # Frontend
+        #     #  e.g. STFT and Feature extract
+        #     #       data_loader may send time-domain signal in this case
+        #     # speech (Batch, NSamples) -> feats: (Batch, NFrames, Dim)
+        #     feats, feats_lengths = DefaultFrontend(speech, speech_lengths)
+        # else:
+        #     # No frontend and no feature extract
+        #     feats, feats_lengths = speech, speech_lengths
+        feats, feats_lengths = self.frontend(speech, speech_lengths)
+        return feats, feats_lengths
+
 
     def _decode_interctc(
         self, intermediate_outs: List[Tuple[int, torch.Tensor]]

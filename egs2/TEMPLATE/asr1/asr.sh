@@ -119,7 +119,7 @@ k2_ctc_decoding=true
 use_nbest_rescoring=true # use transformer-decoder
                          # and transformer language model for nbest rescoring
 num_paths=1000 # The 3rd argument of k2.random_paths.
-nll_batch_size=1 # Affect GPU memory usage when computing nll
+nll_batch_size=100 # Affect GPU memory usage when computing nll
                    # during nbest rescoring
 k2_config=./conf/decode_asr_transformer_with_k2.yaml
 

@@ -376,9 +376,6 @@ class Speech2Text:
         self.enh_s2t_task = enh_s2t_task
         self.multi_asr = multi_asr
 
-        torch.save(asr_model, '/home/zhu05/scratch/2-working/espnet_conformer/espnet/ASR_MODEL_STRCUTRE.pth')
-        # sys.exit()
-
     @torch.no_grad()
     def __call__(
         self, speech: Union[torch.Tensor, np.ndarray]

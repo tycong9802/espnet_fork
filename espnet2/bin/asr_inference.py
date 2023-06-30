@@ -105,7 +105,6 @@ class Speech2Text:
         hugging_face_decoder_max_length: int = 256,
         time_sync: bool = False,
         multi_asr: bool = False
-        # frontend: Optional[DefaultFrontend]
     ):
         self.frontend = DefaultFrontend()
         assert check_argument_types()
@@ -376,6 +375,8 @@ class Speech2Text:
         self.enh_s2t_task = enh_s2t_task
         self.multi_asr = multi_asr
 
+    
+
     @torch.no_grad()
     def __call__(
         self, speech: Union[torch.Tensor, np.ndarray]
@@ -411,45 +412,45 @@ class Speech2Text:
         for i in range(len(speech[0])-1):
             audio_input[0,i] = speech[0,i]
         speech = audio_input
-
-        batch = {"speech": speech, "speech_lengths": lengths}
-        logging.info("speech length: " + str(speech.size(1)))
-
-        # a. To device
-        batch = to_device(batch, device=self.device)
-
-        # b. Forward Encoder
-        # TODO:
-        # Export to the ONNX model, **batch as input, make sure the input is correct and make it as fixed length. model is: self.ars_model
-        # torch.onnx.export(self.asr_model, batch, "testing_export.onnx", export_params=True, opset_version=12,do_constant_folding=True,input_names = ['speech', 'speech_lengths'], output_names = ['output'])
-
+        
         feats, feats_lengths = self._extract_feats(speech, lengths)
-        batch = {"speech": speech, "feats":feats, "feats_lengths": feats_lengths}
-        batch = to_device(batch, device=self.device)
-        speech = to_device(speech, device=self.device)
-        feats = to_device(feats, device=self.device)
-        feats_lengths = to_device(feats_lengths, device=self.device)
+        def to_numpy(tensor):
+            return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
 
-        import os
+        import os, onnxruntime
         onnx_model_name = 'conformer_without_stft.onnx'
         onnx_model = os.path.join(os.getcwd(), onnx_model_name)
         if not os.path.exists(onnx_model):
-            torch.onnx.export(self.asr_model, (speech, feats, feats_lengths), onnx_model, export_params=True, opset_version=12,do_constant_folding=True,input_names = ['speech', 'feats', 'feats_lengths'], output_names = ['encoder_out', 'encoder_out_lens'])
-        logging.info(f'ONNX model has been exported at: {onnx_model}')
+            logging.info(f'CANNOT find the ONNX model: {onnx_model}! Please export the model first, with the option `--model_exporting true`')
+
+        batch = {"feats":to_numpy(feats)}
+
+        session = onnxruntime.InferenceSession(onnx_model)
+        enc, enc_olens = session.run(None, batch)
+        enc = torch.Tensor(enc)
+        enc_olens = torch.Tensor(enc_olens)
+        print(f'DEBUG: inf result enc: {enc}')
+        print(f'DEBUG: inf result enc_olens: {enc_olens}')
 
 
-        # Trace the model without stft
-        traced_model_wo_stft_name = 'traced_conformer_without_stft.pt'
-        traced_model = os.path.join(os.getcwd(), traced_model_wo_stft_name)
-        if not os.path.exists(traced_model):
-            traced_model = torch.jit.trace(self.asr_model, (speech, feats, feats_lengths))
-            traced_model = traced_model.to(self.device)
-            torch.jit.save(traced_model, traced_model_wo_stft_name)
-        logging.info(f'Traced Model has been saved at: {traced_model}')
+        # # Trace the model without stft
+        # import os
+        # traced_model_wo_stft_name = 'traced_conformer_without_stft.pt'
+        # traced_model = os.path.join(os.getcwd(), traced_model_wo_stft_name)
+        # if not os.path.exists(traced_model):
+        #     traced_model = torch.jit.trace(self.asr_model, (speech, feats, feats_lengths))
+        #     traced_model = traced_model.to(self.device)
+        #     torch.jit.save(traced_model, traced_model_wo_stft_name)
+        # logging.info(f'Traced Model has been saved at: {traced_model}')
+        
+        # batch = {"speech": speech, "feats":feats, "feats_lengths": feats_lengths}
+        # batch = to_device(batch, device=self.device)
+        # loaded_model = torch.load(traced_model)
+        # enc, enc_olens = loaded_model(**batch)
+        # print(f'DEBUG: inf result enc: {enc}')
+        # print(f'DEBUG: inf result enc_olens: {enc_olens}')
 
-        sys.exit()
-
-        enc, enc_olens = self.asr_model(**batch)  # @ME encode context to asr_model's forward. Then replace self.asr_model.encode() -> self.asr_model
+        # enc, enc_olens = self.asr_model(**batch)  # @ME encode context to asr_model's forward. Then replace self.asr_model.encode() -> self.asr_model
         if self.multi_asr:
             enc = enc.unbind(dim=1)  # (batch, num_inf, ...) -> num_inf x [batch, ...]
         if self.enh_s2t_task or self.multi_asr:

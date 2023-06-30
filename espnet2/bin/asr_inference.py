@@ -412,7 +412,7 @@ class Speech2Text:
         for i in range(len(speech[0])-1):
             audio_input[0,i] = speech[0,i]
         speech = audio_input
-        
+
         feats, feats_lengths = self._extract_feats(speech, lengths)
         def to_numpy(tensor):
             return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
@@ -425,7 +425,7 @@ class Speech2Text:
 
         batch = {"feats":to_numpy(feats)}
 
-        session = onnxruntime.InferenceSession(onnx_model)
+        session = onnxruntime.InferenceSession(onnx_model, providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider'])
         enc, enc_olens = session.run(None, batch)
         enc = torch.Tensor(enc)
         enc_olens = torch.Tensor(enc_olens)

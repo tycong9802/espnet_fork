@@ -104,7 +104,8 @@ class Speech2Text:
         hugging_face_decoder: bool = False,
         hugging_face_decoder_max_length: int = 256,
         time_sync: bool = False,
-        multi_asr: bool = False
+        multi_asr: bool = False,
+        onnx_inference: bool = True,
     ):
         self.frontend = DefaultFrontend()
         assert check_argument_types()
@@ -374,6 +375,7 @@ class Speech2Text:
         self.nbest = nbest
         self.enh_s2t_task = enh_s2t_task
         self.multi_asr = multi_asr
+        self.onnx_inference = onnx_inference
 
     
 
@@ -417,39 +419,41 @@ class Speech2Text:
         def to_numpy(tensor):
             return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
 
-        import os, onnxruntime
-        onnx_model_name = 'conformer_without_stft.onnx'
-        onnx_model = os.path.join(os.getcwd(), onnx_model_name)
-        if not os.path.exists(onnx_model):
-            logging.info(f'CANNOT find the ONNX model: {onnx_model}! Please export the model first, using the bash script `run.sh` with the option `--model_exporting true`')
-            sys.exit()
+        if self.onnx_inference:
+            # Inference on the ONNX model
+            logging.info('Do inference based on the ONNX model!')
+            import os, onnxruntime
+            onnx_model_name = 'conformer_without_stft.onnx'
+            onnx_model = os.path.join(os.getcwd(), onnx_model_name)
+            if not os.path.exists(onnx_model):
+                logging.info(f'CANNOT find the ONNX model: {onnx_model}! Please export the model first, using the bash script `run.sh` with the option `--model_exporting true`')
+                sys.exit()
 
-        batch = {"feats":to_numpy(feats)}
+            batch = {"feats":to_numpy(feats)}
 
-        session = onnxruntime.InferenceSession(onnx_model, providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider'])
-        enc, enc_olens = session.run(None, batch)
-        enc = torch.Tensor(enc)
-        enc_olens = torch.Tensor(enc_olens)
-        print(f'DEBUG: inf result enc: {enc}')
-        print(f'DEBUG: inf result enc_olens: {enc_olens}')
+            session = onnxruntime.InferenceSession(onnx_model, providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider'])
+            enc, enc_olens = session.run(None, batch)
+            enc = torch.Tensor(enc)
+            enc_olens = torch.Tensor(enc_olens)
+            print(f'DEBUG: inf result enc: {enc}')
+            print(f'DEBUG: inf result enc_olens: {enc_olens}')
 
-
-        # # Trace the model without stft
-        # import os
-        # traced_model_wo_stft_name = 'traced_conformer_without_stft.pt'
-        # traced_model = os.path.join(os.getcwd(), traced_model_wo_stft_name)
-        # if not os.path.exists(traced_model):
-        #     traced_model = torch.jit.trace(self.asr_model, (speech, feats, feats_lengths))
-        #     traced_model = traced_model.to(self.device)
-        #     torch.jit.save(traced_model, traced_model_wo_stft_name)
-        # logging.info(f'Traced Model has been saved at: {traced_model}')
-        
-        # batch = {"speech": speech, "feats":feats, "feats_lengths": feats_lengths}
-        # batch = to_device(batch, device=self.device)
-        # loaded_model = torch.load(traced_model)
-        # enc, enc_olens = loaded_model(**batch)
-        # print(f'DEBUG: inf result enc: {enc}')
-        # print(f'DEBUG: inf result enc_olens: {enc_olens}')
+        else:
+            # Inference on the traced PyTorch model
+            logging.info('Do inference based on the traced PyTorch model!')
+            import os
+            traced_model_wo_stft_name = 'traced_conformer_without_stft.pt'
+            traced_model = os.path.join(os.getcwd(), traced_model_wo_stft_name)
+            if not os.path.exists(traced_model):
+                logging.info(f'CANNOT find the PyTorch model (*.pt): {onnx_model}! Please export the model first, using the bash script `run.sh` with the option `--model_exporting true`')
+                sys.exit()
+            
+            batch = {"speech": speech, "feats":feats, "feats_lengths": feats_lengths}
+            batch = to_device(batch, device=self.device)
+            loaded_model = torch.load(traced_model)
+            enc, enc_olens = loaded_model(**batch)
+            print(f'DEBUG: inf result enc: {enc}')
+            print(f'DEBUG: inf result enc_olens: {enc_olens}')
 
         # enc, enc_olens = self.asr_model(**batch)  # @ME encode context to asr_model's forward. Then replace self.asr_model.encode() -> self.asr_model
         if self.multi_asr:
@@ -674,6 +678,7 @@ def inference(
     hugging_face_decoder_max_length: int,
     time_sync: bool,
     multi_asr: bool,
+    onnx_inference: bool,
 ):
     assert check_argument_types()
     if batch_size > 1:
@@ -726,6 +731,7 @@ def inference(
         hugging_face_decoder=hugging_face_decoder,
         hugging_face_decoder_max_length=hugging_face_decoder_max_length,
         time_sync=time_sync,
+        onnx_inference=onnx_inference,
     )
     speech2text = Speech2Text.from_pretrained(
         model_tag=model_tag,
@@ -1019,10 +1025,18 @@ def get_parser():
         help="Time synchronous beam search.",
     )
 
+    parser.add_argument(
+    "--onnx_inference",
+    type=str2bool,
+    default=True,
+    help="Inference based on the exported ONNX model if True. Otherwise, do the inference on the traced PyTorch model.",
+    )
+
     return parser
 
 
 def main(cmd=None):
+    
     print(get_commandline_args(), file=sys.stderr)
     parser = get_parser()
     args = parser.parse_args(cmd)

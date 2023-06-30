@@ -42,6 +42,7 @@ dumpdir=dump         # Directory to dump features.
 expdir=exp           # Directory to save experiments.
 python=python3       # Specify python to execute espnet commands.
 model_exporting=false # Whether to export ONNX/Traced PyTorch model. If true, only exporting models without doing inference
+onnx_inference=true
 
 # Data preparation related
 local_data_opts= # The options given to local/data.sh.
@@ -185,6 +186,7 @@ Options:
     --expdir         # Directory to save experiments (default="${expdir}").
     --python         # Specify python to execute espnet commands (default="${python}").
     --model_exporting # Whether to export ONNX/Traced PyTorch model. If true, only exporting models without doing inference. (default="${model_exporting}")
+    --onnx_inference # Inference based on the exported ONNX model. Otherwise, do the inference on the traced PyTorch model. (default="${onnx_inference}")
 
     # Data preparation related
     --local_data_opts # The options given to local/data.sh (default="${local_data_opts}").
@@ -1580,6 +1582,7 @@ if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ] && ! [[ " ${skip_stages} " =~
                     --asr_train_config "${asr_exp}"/config.yaml \
                     --asr_model_file "${asr_exp}"/"${inference_asr_model}" \
                     --output_dir "${_logdir}"/output.JOB \
+                    --onnx_inference "${onnx_inference}"
                     ${_opts} ${inference_args} || { cat $(grep -l -i error "${_logdir}"/asr_inference.*.log) ; exit 1; }
             
 

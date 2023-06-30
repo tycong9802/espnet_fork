@@ -421,7 +421,8 @@ class Speech2Text:
         onnx_model_name = 'conformer_without_stft.onnx'
         onnx_model = os.path.join(os.getcwd(), onnx_model_name)
         if not os.path.exists(onnx_model):
-            logging.info(f'CANNOT find the ONNX model: {onnx_model}! Please export the model first, with the option `--model_exporting true`')
+            logging.info(f'CANNOT find the ONNX model: {onnx_model}! Please export the model first, using the bash script `run.sh` with the option `--model_exporting true`')
+            sys.exit()
 
         batch = {"feats":to_numpy(feats)}
 

@@ -1568,7 +1568,7 @@ if [ ${stage} -le 12 ] && [ ${stop_stage} -ge 12 ] && ! [[ " ${skip_stages} " =~
                     --output_dir "${_logdir}"/output.JOB \
                     ${_opts} ${inference_args} || { cat $(grep -l -i error "${_logdir}"/asr_inference.*.log) ; exit 1; }
         else
-            log "Excuting Model Inference!"
+            log "Executing Model Inference!"
             ${_cmd} --gpu "${_ngpu}" JOB=1:"${_nj}" "${_logdir}"/asr_inference.JOB.log \
                 ${python} -m espnet2.bin.${asr_task}_inference${inference_bin_tag} \
                     --batch_size ${batch_size} \

@@ -435,8 +435,8 @@ class Speech2Text:
             enc, enc_olens = session.run(None, batch)
             enc = torch.Tensor(enc)
             enc_olens = torch.Tensor(enc_olens)
-            print(f'DEBUG: inf result enc: {enc}')
-            print(f'DEBUG: inf result enc_olens: {enc_olens}')
+            # print(f'DEBUG: inf result enc: {enc}')
+            # print(f'DEBUG: inf result enc_olens: {enc_olens}')
 
         else:
             # Inference on the traced PyTorch model

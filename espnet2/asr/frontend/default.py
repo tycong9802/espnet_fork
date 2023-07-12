@@ -82,7 +82,6 @@ class DefaultFrontend(AbsFrontend):
     def forward(
         self, input: torch.Tensor, input_lengths: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        print(f'input {input}, input_length: {input_lengths}')
         # 1. Domain-conversion: e.g. Stft: time -> time-freq
         if self.stft is not None:
             input_stft, feats_lens = self._compute_stft(input, input_lengths)

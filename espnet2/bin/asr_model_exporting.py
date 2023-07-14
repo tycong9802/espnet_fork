@@ -406,8 +406,8 @@ class Speech2Text:
         # lengths = speech.new_full([1], dtype=torch.long, fill_value=speech.size(1))
 
         # Modify from the various length to the fixed length for the input
-        lengths = speech.new_full([1], dtype=torch.long, fill_value=200000)
-        audio_input = torch.zeros([1, 200000])
+        lengths = speech.new_full([1], dtype=torch.long, fill_value=235199)
+        audio_input = torch.zeros([1, 235199])
         for i in range(len(speech[0])-1):
             audio_input[0,i] = speech[0,i]
         speech = audio_input

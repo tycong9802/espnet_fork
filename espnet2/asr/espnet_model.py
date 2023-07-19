@@ -209,7 +209,7 @@ class ESPnetASRModel(AbsESPnetModel):
         # text_lengths: torch.Tensor,
         # **kwargs,
         # self, speech: torch.Tensor, speech_lengths: torch.Tensor
-        self, speech: torch.Tensor, feats:torch.Tensor, feats_lengths:torch.Tensor
+        self, feats:torch.Tensor, feats_lengths:torch.Tensor
     )  -> Tuple[torch.Tensor, torch.Tensor]:
         """Frontend + Encoder + Decoder + Calc loss
 
@@ -397,10 +397,10 @@ class ESPnetASRModel(AbsESPnetModel):
                 encoder_out, encoder_out_lens
             )
 
-        assert encoder_out.size(0) == speech.size(0), (
-            encoder_out.size(),
-            speech.size(0),
-        )
+        # assert encoder_out.size(0) == speech.size(0), (
+        #     encoder_out.size(),
+        #     speech.size(0),
+        # )
         if (
             getattr(self.encoder, "selfattention_layer_type", None) != "lf_selfattn"
             and not self.is_encoder_whisper

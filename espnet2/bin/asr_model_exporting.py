@@ -434,18 +434,18 @@ class Speech2Text:
         onnx_model_name = 'conformer_without_stft.onnx'
         onnx_model = os.path.join(os.getcwd(), onnx_model_name)
         if not os.path.exists(onnx_model):
-            torch.onnx.export(self.asr_model, (speech, feats, feats_lengths), onnx_model, export_params=True, opset_version=12,do_constant_folding=True,input_names = ['speech', 'feats', 'feats_lengths'], output_names = ['encoder_out', 'encoder_out_lens'])
+            torch.onnx.export(self.asr_model, (feats, feats_lengths), onnx_model, export_params=True, opset_version=12,do_constant_folding=True,input_names = ['feats', 'feats_lengths'], output_names = ['encoder_out', 'encoder_out_lens'])
         logging.info(f'ONNX model has been exported at: {onnx_model}')
 
 
-        # Trace the model without stft
-        traced_model_wo_stft_name = 'traced_conformer_without_stft.pt'
-        traced_model = os.path.join(os.getcwd(), traced_model_wo_stft_name)
-        if not os.path.exists(traced_model):
-            traced_model = torch.jit.trace(self.asr_model, (speech, feats, feats_lengths))
-            traced_model = traced_model.to(self.device)
-            torch.jit.save(traced_model, traced_model_wo_stft_name)
-        logging.info(f'Traced Model has been saved at: {traced_model}')
+        # # Trace the model without stft
+        # traced_model_wo_stft_name = 'traced_conformer_without_stft.pt'
+        # traced_model = os.path.join(os.getcwd(), traced_model_wo_stft_name)
+        # if not os.path.exists(traced_model):
+        #     traced_model = torch.jit.trace(self.asr_model, (feats, feats_lengths))
+        #     traced_model = traced_model.to(self.device)
+        #     torch.jit.save(traced_model, traced_model_wo_stft_name)
+        # logging.info(f'Traced Model has been saved at: {traced_model}')
 
         sys.exit()
 

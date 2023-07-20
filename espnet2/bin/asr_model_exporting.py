@@ -415,17 +415,11 @@ class Speech2Text:
         batch = {"speech": speech, "speech_lengths": lengths}
         logging.info("speech length: " + str(speech.size(1)))
 
-        # a. To device
-        batch = to_device(batch, device=self.device)
-
         # b. Forward Encoder
         # Note: Export to the ONNX model, **batch as input, make sure the input is correct and make it as fixed length. model is: self.ars_model
         # torch.onnx.export(self.asr_model, batch, "testing_export.onnx", export_params=True, opset_version=12,do_constant_folding=True,input_names = ['speech', 'speech_lengths'], output_names = ['output'])
 
         feats, feats_lengths = self._extract_feats(speech, lengths)
-        batch = {"speech": speech, "feats":feats, "feats_lengths": feats_lengths}
-        batch = to_device(batch, device=self.device)
-        speech = to_device(speech, device=self.device)
         feats = to_device(feats, device=self.device)
         feats_lengths = to_device(feats_lengths, device=self.device)
 

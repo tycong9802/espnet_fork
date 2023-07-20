@@ -405,15 +405,13 @@ class Speech2Text:
 
         # data: (Nsamples,) -> (1, Nsamples)
         speech = speech.unsqueeze(0).to(getattr(torch, self.dtype))
-        # lengths: (1,)
-        # lengths = speech.new_full([1], dtype=torch.long, fill_value=speech.size(1))
-
-        # Modify from the various length to the fixed length for the input
-        lengths = speech.new_full([1], dtype=torch.long, fill_value=235199)
         audio_input = torch.zeros([1, 235199])
-        for i in range(len(speech[0])-1):
+        for i in range(len(speech[0])):
             audio_input[0,i] = speech[0,i]
         speech = audio_input
+
+        # lengths: (1,)
+        lengths = speech.new_full([1], dtype=torch.long, fill_value=speech.size(1))
 
         feats, feats_lengths = self._extract_feats(speech, lengths)
         def to_numpy(tensor):

@@ -429,15 +429,16 @@ class Speech2Text:
                 logging.info(f'CANNOT find the ONNX model: {onnx_model}! Please export the model first, using the bash script `run.sh` with the option `--model_exporting true`')
                 sys.exit()
 
-            batch = {"feats":feats}
-
+            batch = {"feats":to_numpy(feats)}
             session = onnxruntime.InferenceSession(onnx_model, providers=['CPUExecutionProvider'])
-            # enc, enc_olens = session.run(None, batch)
-            # enc = torch.Tensor(enc)
-            # enc_olens = torch.Tensor(enc_olens)
+            enc, enc_olens = session.run(None, batch)
+            enc = torch.Tensor(enc)
+            enc_olens = torch.Tensor(enc_olens)
             # print(f'DEBUG: inf result enc: {enc}')
             # print(f'DEBUG: inf result enc_olens: {enc_olens}')
-            enc, enc_olens = self.asr_model(**batch)
+
+            # batch = {"feats":feats}
+            # enc, enc_olens = self.asr_model(**batch)
 
         else:
             # Inference on the traced PyTorch model

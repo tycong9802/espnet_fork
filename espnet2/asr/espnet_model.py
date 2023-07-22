@@ -365,17 +365,11 @@ class ESPnetASRModel(AbsESPnetModel):
         # TODO: To remove the `extra` values introduced by paddings to the input audios. In this case, the extracted Features includes the `padded` info. Thuns, it should be removed, otherwise, Features cannot represent the characteristics of the real audio input.
 
         def shrink_input(input_tensor, target_value):
-            # Create a boolean mask where True corresponds to elements different from the target value
-            if isinstance(target_value, (float, int)):
-                mask = torch.abs(input_tensor - target_value) > 1e-4
-            else:
-                mask = (input_tensor != target_value)
+            mask = torch.abs(input_tensor - target_value) > 1e-4
 
-            # Use torch.masked_select to filter out elements based on the mask and create a new tensor
+            # Use the Where operator to create a new tensor without the specific value
             new_tensor = torch.masked_select(input_tensor, mask)
-
-            # Reshape the new tensor to the desired shape
-            new_tensor = new_tensor.view(1, -1, input_tensor.size(2))  # Change the shape as needed
+            new_tensor = new_tensor.view(1, -1, input_tensor.size(2))
             return new_tensor
         
         #NOTE: Be aware that the following target_value is hard coded, and it would be changed if the maximum length of the input speech changed.

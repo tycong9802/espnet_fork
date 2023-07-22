@@ -361,6 +361,32 @@ class ESPnetASRModel(AbsESPnetModel):
             speech: (Batch, Length, ...)
             speech_lengths: (Batch, )
         """
+
+        # TODO: To remove the `extra` values introduced by paddings to the input audios. In this case, the extracted Features includes the `padded` info. Thuns, it should be removed, otherwise, Features cannot represent the characteristics of the real audio input.
+
+        def shrink_input(input_tensor, target_value):
+            # Create a boolean mask where True corresponds to elements different from the target value
+            if isinstance(target_value, (float, int)):
+                mask = torch.abs(input_tensor - target_value) > 1e-4
+            else:
+                mask = (input_tensor != target_value)
+            print(f'DEBUG: mask = {mask}')
+
+            # Use torch.masked_select to filter out elements based on the mask and create a new tensor
+            new_tensor = torch.masked_select(input_tensor, mask)
+
+            # Reshape the new tensor to the desired shape
+            new_tensor = new_tensor.view(1, -1, input_tensor.size(2))  # Change the shape as needed
+            return new_tensor
+        
+        target_value = -23.0259
+        feats = shrink_input(feats, target_value)
+        print(f'DEBUG: espnet_model: feats = {feats}')
+        print(f'DEBUG: espnet_model: feats shape = {feats.shape}')
+        print(f'DEBUG: espnet_model: feats_lengths = {feats_lengths}')
+        feats_lengths = torch.tensor([feats.size(1)])
+        print(f'DEBUG: espnet_model: feats_lengths after = {feats_lengths}')
+
         with autocast(False):
             # 1. Extract feats
             # feats, feats_lengths = self._extract_feats(speech, speech_lengths)
@@ -396,7 +422,6 @@ class ESPnetASRModel(AbsESPnetModel):
             encoder_out, encoder_out_lens = self.postencoder(
                 encoder_out, encoder_out_lens
             )
-
         # assert encoder_out.size(0) == speech.size(0), (
         #     encoder_out.size(),
         #     speech.size(0),

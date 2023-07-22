@@ -414,6 +414,8 @@ class Speech2Text:
         lengths = speech.new_full([1], dtype=torch.long, fill_value=speech.size(1))
 
         feats, feats_lengths = self._extract_feats(speech, lengths)
+        print(f'DEBUG: asr_infer: feats = {feats}')
+        print(f'DEBUG: asr_infer: feats shape = {feats.shape}')
         def to_numpy(tensor):
             return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
 
@@ -428,13 +430,15 @@ class Speech2Text:
                 sys.exit()
 
             batch = {"feats":to_numpy(feats)}
+            batch = {"feats":feats, "feats_lengths": feats_lengths}
 
             session = onnxruntime.InferenceSession(onnx_model, providers=['CPUExecutionProvider'])
-            enc, enc_olens = session.run(None, batch)
-            enc = torch.Tensor(enc)
-            enc_olens = torch.Tensor(enc_olens)
+            # enc, enc_olens = session.run(None, batch)
+            # enc = torch.Tensor(enc)
+            # enc_olens = torch.Tensor(enc_olens)
             # print(f'DEBUG: inf result enc: {enc}')
             # print(f'DEBUG: inf result enc_olens: {enc_olens}')
+            enc, enc_olens = self.asr_model(**batch)
 
         else:
             # Inference on the traced PyTorch model

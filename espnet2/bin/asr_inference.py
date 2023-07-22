@@ -429,8 +429,7 @@ class Speech2Text:
                 logging.info(f'CANNOT find the ONNX model: {onnx_model}! Please export the model first, using the bash script `run.sh` with the option `--model_exporting true`')
                 sys.exit()
 
-            batch = {"feats":to_numpy(feats)}
-            batch = {"feats":feats, "feats_lengths": feats_lengths}
+            batch = {"feats":feats}
 
             session = onnxruntime.InferenceSession(onnx_model, providers=['CPUExecutionProvider'])
             # enc, enc_olens = session.run(None, batch)

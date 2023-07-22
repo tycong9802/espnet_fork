@@ -209,7 +209,7 @@ class ESPnetASRModel(AbsESPnetModel):
         # text_lengths: torch.Tensor,
         # **kwargs,
         # self, speech: torch.Tensor, speech_lengths: torch.Tensor
-        self, feats:torch.Tensor, feats_lengths:torch.Tensor
+        self, feats:torch.Tensor
     )  -> Tuple[torch.Tensor, torch.Tensor]:
         """Frontend + Encoder + Decoder + Calc loss
 
@@ -382,9 +382,8 @@ class ESPnetASRModel(AbsESPnetModel):
         feats = shrink_input(feats, target_value)
         print(f'DEBUG: espnet_model: feats = {feats}')
         print(f'DEBUG: espnet_model: feats shape = {feats.shape}')
-        print(f'DEBUG: espnet_model: feats_lengths = {feats_lengths}')
         feats_lengths = torch.tensor([feats.size(1)])
-        print(f'DEBUG: espnet_model: feats_lengths after = {feats_lengths}')
+        print(f'DEBUG: espnet_model: feats_lengths = {feats_lengths}')
 
         with autocast(False):
             # 1. Extract feats

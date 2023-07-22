@@ -370,7 +370,6 @@ class ESPnetASRModel(AbsESPnetModel):
                 mask = torch.abs(input_tensor - target_value) > 1e-4
             else:
                 mask = (input_tensor != target_value)
-            print(f'DEBUG: mask = {mask}')
 
             # Use torch.masked_select to filter out elements based on the mask and create a new tensor
             new_tensor = torch.masked_select(input_tensor, mask)

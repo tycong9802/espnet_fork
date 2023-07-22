@@ -378,6 +378,7 @@ class ESPnetASRModel(AbsESPnetModel):
             new_tensor = new_tensor.view(1, -1, input_tensor.size(2))  # Change the shape as needed
             return new_tensor
         
+        #NOTE: Be aware that the following target_value is hard coded, and it would be changed if the maximum length of the input speech changed.
         target_value = -23.0259
         feats = shrink_input(feats, target_value)
         print(f'DEBUG: espnet_model: feats = {feats}')

@@ -402,10 +402,10 @@ class Speech2Text:
 
         # data: (Nsamples,) -> (1, Nsamples)
         speech = speech.unsqueeze(0).to(getattr(torch, self.dtype))
-        audio_input = torch.zeros([1, 235199])
-        for i in range(len(speech[0])):
-            audio_input[0,i] = speech[0,i]
-        speech = audio_input
+        # audio_input = torch.zeros([1, 235199])
+        # for i in range(len(speech[0])):
+        #     audio_input[0,i] = speech[0,i]
+        # speech = audio_input
 
         # lengths: (1,)
         lengths = speech.new_full([1], dtype=torch.long, fill_value=speech.size(1))
@@ -420,6 +420,16 @@ class Speech2Text:
         # torch.onnx.export(self.asr_model, batch, "testing_export.onnx", export_params=True, opset_version=12,do_constant_folding=True,input_names = ['speech', 'speech_lengths'], output_names = ['output'])
 
         feats, feats_lengths = self._extract_feats(speech, lengths)
+
+        import torch.nn.functional as F
+
+        def padding_feats(input_tensor, desired_shape):
+            padding = desired_shape[1] - input_tensor.size(1)
+            padded_tensor = F.pad(input_tensor, (0, 0, 0, padding, 0, 0))
+            return padded_tensor
+        feats = padding_feats(feats, (1, 1838,80))
+        feats_lengths = torch.tensor([feats.size(1)])
+
         feats = to_device(feats, device=self.device)
         feats_lengths = to_device(feats_lengths, device=self.device)
 

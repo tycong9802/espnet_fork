@@ -405,15 +405,24 @@ class Speech2Text:
 
         # data: (Nsamples,) -> (1, Nsamples)
         speech = speech.unsqueeze(0).to(getattr(torch, self.dtype))
-        audio_input = torch.zeros([1, 235199])
-        for i in range(len(speech[0])):
-            audio_input[0,i] = speech[0,i]
-        speech = audio_input
+        # audio_input = torch.zeros([1, 235199])
+        # for i in range(len(speech[0])):
+        #     audio_input[0,i] = speech[0,i]
+        # speech = audio_input
 
         # lengths: (1,)
         lengths = speech.new_full([1], dtype=torch.long, fill_value=speech.size(1))
 
         feats, feats_lengths = self._extract_feats(speech, lengths)
+        import torch.nn.functional as F
+
+        def padding_feats(input_tensor, desired_shape):
+            padding = desired_shape[1] - input_tensor.size(1)
+            padded_tensor = F.pad(input_tensor, (0, 0, 0, padding, 0, 0))
+            return padded_tensor
+        feats = padding_feats(feats, (1, 1838,80))
+        feats_lengths = torch.tensor([feats.size(1)])
+
         print(f'DEBUG: asr_infer: feats = {feats}')
         print(f'DEBUG: asr_infer: feats shape = {feats.shape}')
         def to_numpy(tensor):
@@ -429,16 +438,16 @@ class Speech2Text:
                 logging.info(f'CANNOT find the ONNX model: {onnx_model}! Please export the model first, using the bash script `run.sh` with the option `--model_exporting true`')
                 sys.exit()
 
-            batch = {"feats":to_numpy(feats)}
-            session = onnxruntime.InferenceSession(onnx_model, providers=['CPUExecutionProvider'])
-            enc, enc_olens = session.run(None, batch)
-            enc = torch.Tensor(enc)
-            enc_olens = torch.Tensor(enc_olens)
-            # print(f'DEBUG: inf result enc: {enc}')
-            # print(f'DEBUG: inf result enc_olens: {enc_olens}')
+            # batch = {"feats":to_numpy(feats)}
+            # session = onnxruntime.InferenceSession(onnx_model, providers=['CPUExecutionProvider'])
+            # enc, enc_olens = session.run(None, batch)
+            # enc = torch.Tensor(enc)
+            # enc_olens = torch.Tensor(enc_olens)
+            # # print(f'DEBUG: inf result enc: {enc}')
+            # # print(f'DEBUG: inf result enc_olens: {enc_olens}')
 
-            # batch = {"feats":feats}
-            # enc, enc_olens = self.asr_model(**batch)
+            batch = {"feats":feats}
+            enc, enc_olens = self.asr_model(**batch)
 
         else:
             # Inference on the traced PyTorch model

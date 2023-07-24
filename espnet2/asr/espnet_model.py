@@ -380,6 +380,27 @@ class ESPnetASRModel(AbsESPnetModel):
         feats_lengths = torch.tensor([feats.size(1)])
         print(f'DEBUG: espnet_model: feats_lengths = {feats_lengths}')
 
+        import torch.nn.functional as F
+        def padding_feats(input_tensor, desired_shape):
+            padding = desired_shape[1] - input_tensor.size(1)
+            padded_tensor = F.pad(input_tensor, (0, 0, 0, padding, 0, 0))
+            return padded_tensor
+        
+        def remove_duplicates(input_tensor):
+            # Reshape the tensor to 2D to efficiently remove duplicates
+            flattened_tensor = input_tensor.reshape(-1, input_tensor.size(-1))
+
+            # Use torch.unique() to find unique rows and their counts
+            unique_rows, counts = torch.unique(flattened_tensor, dim=0, sorted=False, return_counts=True)
+
+            # Use the inverse mapping to get the unique values based on their counts
+            unique_values = unique_rows[counts == 1]
+
+            # Reshape back to the original 3D shape
+            new_tensor = unique_values.reshape(1, -1, input_tensor.size(-1))
+
+            return new_tensor, torch.tensor([new_tensor.size(1)])
+        
         with autocast(False):
             # 1. Extract feats
             # feats, feats_lengths = self._extract_feats(speech, speech_lengths)
@@ -391,6 +412,10 @@ class ESPnetASRModel(AbsESPnetModel):
             # 3. Normalization for feature: e.g. Global-CMVN, Utterance-CMVN
             if self.normalize is not None:
                 feats, feats_lengths = self.normalize(feats, feats_lengths)
+                feats, feats_lengths  = remove_duplicates(feats)
+                # TODO: To replace the duplicated tensors with 0s
+                feats = padding_feats(feats, (1, 2000, 80))
+                feats_lengths = torch.tensor([feats.size(1)])
 
         # Pre-encoder, e.g. used for raw input data
         if self.preencoder is not None:

@@ -420,7 +420,7 @@ class Speech2Text:
             padding = desired_shape[1] - input_tensor.size(1)
             padded_tensor = F.pad(input_tensor, (0, 0, 0, padding, 0, 0))
             return padded_tensor
-        feats = padding_feats(feats, (1, 1838,80))
+        feats = padding_feats(feats, (1, 2000,80))
         feats_lengths = torch.tensor([feats.size(1)])
 
         print(f'DEBUG: asr_infer: feats = {feats}')
@@ -436,18 +436,19 @@ class Speech2Text:
             onnx_model = os.path.join(os.getcwd(), onnx_model_name)
             if not os.path.exists(onnx_model):
                 logging.info(f'CANNOT find the ONNX model: {onnx_model}! Please export the model first, using the bash script `run.sh` with the option `--model_exporting true`')
-                sys.exit()
+                # sys.exit()
 
-            # batch = {"feats":to_numpy(feats)}
-            # session = onnxruntime.InferenceSession(onnx_model, providers=['CPUExecutionProvider'])
-            # enc, enc_olens = session.run(None, batch)
-            # enc = torch.Tensor(enc)
-            # enc_olens = torch.Tensor(enc_olens)
-            # # print(f'DEBUG: inf result enc: {enc}')
-            # # print(f'DEBUG: inf result enc_olens: {enc_olens}')
+            batch = {"feats":to_numpy(feats)}
+            session = onnxruntime.InferenceSession(onnx_model, providers=['CPUExecutionProvider'])
+            enc, enc_olens = session.run(None, batch)
+            enc = torch.Tensor(enc)
+            enc_olens = torch.Tensor(enc_olens)
+            # print(f'DEBUG: inf result enc: {enc}')
+            # print(f'DEBUG: inf result enc_olens: {enc_olens}')
 
-            batch = {"feats":feats}
-            enc, enc_olens = self.asr_model(**batch)
+            # batch = {"feats":feats}
+            # batch = to_device(batch, device=self.device)
+            # enc, enc_olens = self.asr_model(**batch)
 
         else:
             # Inference on the traced PyTorch model

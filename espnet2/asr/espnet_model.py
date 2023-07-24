@@ -382,11 +382,8 @@ class ESPnetASRModel(AbsESPnetModel):
 
         import torch.nn.functional as F
         def padding_feats(input_tensor, desired_shape):
-            padding = desired_shape[1] - input_tensor.size(1)
-            padded_tensor = F.pad(input_tensor, (0, 0, 0, padding, 0, 0))
-            return padded_tensor
-        
-        def remove_duplicates(input_tensor):
+            # NOTE: This function find out those duplicated tensors and replace (padding) them with 0s
+            # 1. Find and remove the duplicated tensors
             # Reshape the tensor to 2D to efficiently remove duplicates
             flattened_tensor = input_tensor.reshape(-1, input_tensor.size(-1))
 
@@ -399,7 +396,11 @@ class ESPnetASRModel(AbsESPnetModel):
             # Reshape back to the original 3D shape
             new_tensor = unique_values.reshape(1, -1, input_tensor.size(-1))
 
-            return new_tensor, torch.tensor([new_tensor.size(1)])
+            ####################
+            #2. Padding the unique tensor with 0s to the given shape
+            padding = desired_shape[1] - new_tensor.size(1)
+            padded_tensor = F.pad(new_tensor, (0, 0, 0, padding, 0, 0))
+            return padded_tensor
         
         with autocast(False):
             # 1. Extract feats
@@ -412,7 +413,7 @@ class ESPnetASRModel(AbsESPnetModel):
             # 3. Normalization for feature: e.g. Global-CMVN, Utterance-CMVN
             if self.normalize is not None:
                 feats, feats_lengths = self.normalize(feats, feats_lengths)
-                feats, feats_lengths  = remove_duplicates(feats)
+                # feats, feats_lengths  = remove_duplicates(feats)
                 # TODO: To replace the duplicated tensors with 0s
                 feats = padding_feats(feats, (1, 2000, 80))
                 feats_lengths = torch.tensor([feats.size(1)])

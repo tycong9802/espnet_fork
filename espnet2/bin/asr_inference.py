@@ -413,7 +413,14 @@ class Speech2Text:
         # lengths: (1,)
         lengths = speech.new_full([1], dtype=torch.long, fill_value=speech.size(1))
 
+        def padding_feats(input_tensor, desired_shape):
+            import torch.nn.functional as F
+            padding = desired_shape[1] - input_tensor.size(1)
+            padded_tensor = F.pad(input_tensor, (0, 0, 0, padding, 0, 0))
+            return padded_tensor, torch.tensor([padded_tensor.size(1)])
+    
         feats, feats_lengths = self._extract_feats(speech, lengths)
+        feats, feats_lengths = padding_feats(feats, (1, 2000,80))
         def to_numpy(tensor):
             return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
 
@@ -435,8 +442,8 @@ class Speech2Text:
             # # print(f'DEBUG: inf result enc: {enc}')
             # # print(f'DEBUG: inf result enc_olens: {enc_olens}')
 
-            # import math
-            # torch.set_printoptions(threshold=math.inf)
+            import math
+            torch.set_printoptions(threshold=math.inf)
             batch = {"feats":feats}
             batch = to_device(batch, device=self.device)
             enc, enc_olens = self.asr_model(**batch)

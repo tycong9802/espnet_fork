@@ -413,8 +413,7 @@ class ESPnetASRModel(AbsESPnetModel):
             # 3. Normalization for feature: e.g. Global-CMVN, Utterance-CMVN
             if self.normalize is not None:
                 feats, feats_lengths = self.normalize(feats, feats_lengths)
-                # Padding normalized features. If padding before norm, then the features will be contaminated
-                feats, feats_lengths = padding_feats(feats, (1, 2000, 80))
+                print('hold')
 
         # Pre-encoder, e.g. used for raw input data
         if self.preencoder is not None:

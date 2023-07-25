@@ -318,7 +318,21 @@ class ConformerEncoder(AbsEncoder):
 
         """
         def remove_paddings(input_tensor):
-            new_tensor = input_tensor[input_tensor != 0].view(input_tensor.size(0), -1, input_tensor.size(2))
+            # # NOTE: This function find out those duplicated tensors and replace (padding) them with 0s
+            # # 1. Find and remove the duplicated tensors
+            # # Reshape the tensor to 2D to efficiently remove duplicates
+            # flattened_tensor = input_tensor.reshape(-1, input_tensor.size(-1))
+
+            # # Use torch.unique() to find unique rows and their counts
+            # unique_rows, counts = torch.unique(flattened_tensor, dim=0, sorted=False, return_counts=True)
+
+            # # Use the inverse mapping to get the unique values based on their counts
+            # unique_values = unique_rows[counts == 1]
+
+            # # Reshape back to the original 3D shape
+            # new_tensor = unique_values.reshape(1, -1, input_tensor.size(-1))
+
+            new_tensor = input_tensor[input_tensor != input_tensor[:,-1:,]].view(input_tensor.size(0), -1, input_tensor.size(2))
             return new_tensor, torch.tensor([new_tensor.size(1)])
         
         xs_pad, ilens = remove_paddings(xs_pad)

@@ -426,9 +426,8 @@ class Speech2Text:
         def padding_feats(input_tensor, desired_shape):
             padding = desired_shape[1] - input_tensor.size(1)
             padded_tensor = F.pad(input_tensor, (0, 0, 0, padding, 0, 0))
-            return padded_tensor
-        feats = padding_feats(feats, (1, 2000,80))
-        feats_lengths = torch.tensor([feats.size(1)])
+            return padded_tensor, torch.tensor([padded_tensor.size(1)])
+        # feats, feats_lengths = padding_feats(feats, (1, 2000,80))
 
         feats = to_device(feats, device=self.device)
         feats_lengths = to_device(feats_lengths, device=self.device)

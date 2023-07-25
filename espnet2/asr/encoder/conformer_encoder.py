@@ -317,6 +317,11 @@ class ConformerEncoder(AbsEncoder):
             torch.Tensor: Not to be used now.
 
         """
+        def remove_paddings(input_tensor):
+            new_tensor = input_tensor[input_tensor != 0].view(input_tensor.size(0), -1, input_tensor.size(2))
+            return new_tensor, torch.tensor([new_tensor.size(1)])
+        
+        xs_pad, ilens = remove_paddings(xs_pad)
         masks = (~make_pad_mask(ilens)[:, None, :]).to(xs_pad.device)
 
         if (

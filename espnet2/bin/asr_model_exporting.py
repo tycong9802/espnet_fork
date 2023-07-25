@@ -402,10 +402,6 @@ class Speech2Text:
 
         # data: (Nsamples,) -> (1, Nsamples)
         speech = speech.unsqueeze(0).to(getattr(torch, self.dtype))
-        # audio_input = torch.zeros([1, 235199])
-        # for i in range(len(speech[0])):
-        #     audio_input[0,i] = speech[0,i]
-        # speech = audio_input
 
         # lengths: (1,)
         lengths = speech.new_full([1], dtype=torch.long, fill_value=speech.size(1))
@@ -420,7 +416,7 @@ class Speech2Text:
         # torch.onnx.export(self.asr_model, batch, "testing_export.onnx", export_params=True, opset_version=12,do_constant_folding=True,input_names = ['speech', 'speech_lengths'], output_names = ['output'])
 
         feats, feats_lengths = self._extract_feats(speech, lengths)
-        
+
         def padding_feats(input_tensor, desired_shape):
             import torch.nn.functional as F
             padding = desired_shape[1] - input_tensor.size(1)

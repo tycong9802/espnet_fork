@@ -1870,7 +1870,7 @@ class AbsTask(ABC):
         with config_file.open("r", encoding="utf-8") as f:
             args = yaml.safe_load(f)
         args = argparse.Namespace(**args)
-        model = cls.build_model(args)
+        model, normalize = cls.build_model(args)
         if not isinstance(model, AbsESPnetModel):
             raise RuntimeError(
                 f"model must inherit {AbsESPnetModel.__name__}, but got {type(model)}"
@@ -1907,4 +1907,4 @@ class AbsTask(ABC):
                 else:
                     raise
 
-        return model, args
+        return model, args, normalize

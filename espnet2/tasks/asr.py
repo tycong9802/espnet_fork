@@ -610,4 +610,4 @@ class ASRTask(AbsTask):
             initialize(model, args.init)
 
         assert check_return_type(model)
-        return model
+        return model, normalize

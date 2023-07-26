@@ -374,7 +374,7 @@ class ESPnetASRModel(AbsESPnetModel):
         
         #NOTE: Be aware that the following target_value is hard coded, and it would be changed if the maximum length of the input speech changed.
         target_value = -23.0259
-        feats = shrink_input(feats, target_value)
+        # feats = shrink_input(feats, target_value)
         print(f'DEBUG: espnet_model: feats = {feats}')
         print(f'DEBUG: espnet_model: feats shape = {feats.shape}')
         feats_lengths = torch.tensor([feats.size(1)])
@@ -402,18 +402,18 @@ class ESPnetASRModel(AbsESPnetModel):
             padded_tensor = F.pad(new_tensor, (0, 0, 0, padding, 0, 0))
             return padded_tensor, torch.tensor([padded_tensor.size(1)])
         
-        with autocast(False):
-            # 1. Extract feats
-            # feats, feats_lengths = self._extract_feats(speech, speech_lengths)
+        # with autocast(False):
+        #     # 1. Extract feats
+        #     # feats, feats_lengths = self._extract_feats(speech, speech_lengths)
 
-            # 2. Data augmentation
-            if self.specaug is not None and self.training:
-                feats, feats_lengths = self.specaug(feats, feats_lengths)
+        #     # 2. Data augmentation
+        #     if self.specaug is not None and self.training:
+        #         feats, feats_lengths = self.specaug(feats, feats_lengths)
 
-            # 3. Normalization for feature: e.g. Global-CMVN, Utterance-CMVN
-            if self.normalize is not None:
-                feats, feats_lengths = self.normalize(feats, feats_lengths)
-                print('hold')
+        #     # 3. Normalization for feature: e.g. Global-CMVN, Utterance-CMVN
+        #     if self.normalize is not None:
+        #         feats, feats_lengths = self.normalize(feats, feats_lengths)
+        #         print('hold')
 
         # Pre-encoder, e.g. used for raw input data
         if self.preencoder is not None:

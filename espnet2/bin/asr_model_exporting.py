@@ -127,7 +127,7 @@ class Speech2Text:
         # 1. Build ASR model
         scorers = {}
 
-        asr_model, asr_train_args = task.build_model_from_file(
+        asr_model, asr_train_args,normalize = task.build_model_from_file(
             asr_train_config, asr_model_file, device
         )
 
@@ -144,6 +144,7 @@ class Speech2Text:
                 ]
             )
         asr_model.to(dtype=getattr(torch, dtype)).eval()
+        self.normalize = normalize
 
         if quantize_asr_model:
             logging.info("Use quantized asr model for decoding.")
@@ -415,14 +416,19 @@ class Speech2Text:
         # Note: Export to the ONNX model, **batch as input, make sure the input is correct and make it as fixed length. model is: self.ars_model
         # torch.onnx.export(self.asr_model, batch, "testing_export.onnx", export_params=True, opset_version=12,do_constant_folding=True,input_names = ['speech', 'speech_lengths'], output_names = ['output'])
 
-        feats, feats_lengths = self._extract_feats(speech, lengths)
 
         def padding_feats(input_tensor, desired_shape):
             import torch.nn.functional as F
             padding = desired_shape[1] - input_tensor.size(1)
             padded_tensor = F.pad(input_tensor, (0, 0, 0, padding, 0, 0))
             return padded_tensor, torch.tensor([padded_tensor.size(1)])
+
+        feats, feats_lengths = self._extract_feats(speech, lengths)
+        feats, feats_lengths = self.normalize(feats, feats_lengths)
         feats, feats_lengths = padding_feats(feats, (1, 2000,80))
+
+        from espnet.nets.pytorch_backend.nets_utils import get_activation, make_pad_mask
+        # masks = (~make_pad_mask(feats_lengths)[:, None, :]).to(feats.device)
 
         feats = to_device(feats, device=self.device)
         feats_lengths = to_device(feats_lengths, device=self.device)

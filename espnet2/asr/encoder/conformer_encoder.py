@@ -328,7 +328,7 @@ class ConformerEncoder(AbsEncoder):
             return padded_tensor, torch.tensor([padded_tensor.size(1)])
         
         # xs_pad, ilens = remove_paddings(xs_pad)
-        xs_pad, _ = padding_feats(xs_pad, (1, 1838,80))
+        # xs_pad, _ = padding_feats(xs_pad, (1, 1838,80))
         masks = (~make_pad_mask(ilens)[:, None, :]).to(xs_pad.device)
 
         if (

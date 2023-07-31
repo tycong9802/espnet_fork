@@ -425,7 +425,7 @@ class Speech2Text:
 
         feats, feats_lengths = self._extract_feats(speech, lengths)
         feats, feats_lengths = self.normalize(feats, feats_lengths)
-        feats, feats_lengths = padding_feats(feats, (1, 2000,80))
+        feats, feats_lengths = padding_feats(feats, (1, 1838,80))
 
         from espnet.nets.pytorch_backend.nets_utils import get_activation, make_pad_mask
         # masks = (~make_pad_mask(feats_lengths)[:, None, :]).to(feats.device)

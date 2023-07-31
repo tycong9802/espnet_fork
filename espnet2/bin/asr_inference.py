@@ -422,8 +422,7 @@ class Speech2Text:
 
         feats, feats_lengths = self._extract_feats(speech, lengths)
         feats, feats_lengths = self.normalize(feats, feats_lengths)
-        
-        # feats, feats_lengths = padding_feats(feats, (1, 2000,80))
+        feats, feats_lengths = padding_feats(feats, (1, 1838,80))
 
         def to_numpy(tensor):
             return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
@@ -438,19 +437,19 @@ class Speech2Text:
                 logging.info(f'CANNOT find the ONNX model: {onnx_model}! Please export the model first, using the bash script `run.sh` with the option `--model_exporting true`')
                 # sys.exit()
 
-            # batch = {"feats":to_numpy(feats)}
-            # session = onnxruntime.InferenceSession(onnx_model, providers=['CPUExecutionProvider'])
-            # enc, enc_olens = session.run(None, batch)
-            # enc = torch.Tensor(enc)
-            # enc_olens = torch.Tensor(enc_olens)
-            # # print(f'DEBUG: inf result enc: {enc}')
-            # # print(f'DEBUG: inf result enc_olens: {enc_olens}')
+            batch = {"feats":to_numpy(feats)}
+            session = onnxruntime.InferenceSession(onnx_model, providers=['CPUExecutionProvider'])
+            enc, enc_olens = session.run(None, batch)
+            enc = torch.Tensor(enc)
+            enc_olens = torch.Tensor(enc_olens)
+            # print(f'DEBUG: inf result enc: {enc}')
+            # print(f'DEBUG: inf result enc_olens: {enc_olens}')
 
-            # import math
-            # torch.set_printoptions(threshold=math.inf)
-            batch = {"feats":feats}
-            batch = to_device(batch, device=self.device)
-            enc, enc_olens = self.asr_model(**batch)
+            # # import math
+            # # torch.set_printoptions(threshold=math.inf)
+            # batch = {"feats":feats}
+            # batch = to_device(batch, device=self.device)
+            # enc, enc_olens = self.asr_model(**batch)
 
         else:
             # Inference on the traced PyTorch model

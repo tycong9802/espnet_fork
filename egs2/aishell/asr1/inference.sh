@@ -1,0 +1,1 @@
+./run.sh --skip_data_prep false --skip_train true --download_model kamo-naoyuki/aishell_conformer --onnx_inference true --onnx_inference true

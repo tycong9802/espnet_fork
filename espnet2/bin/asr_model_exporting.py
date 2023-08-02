@@ -402,15 +402,10 @@ class Speech2Text:
 
         # data: (Nsamples,) -> (1, Nsamples)
         speech = speech.unsqueeze(0).to(getattr(torch, self.dtype))
-        # lengths: (1,)
-        # lengths = speech.new_full([1], dtype=torch.long, fill_value=speech.size(1))
 
-        # Modify from the various length to the fixed length for the input
-        lengths = speech.new_full([1], dtype=torch.long, fill_value=235199)
-        audio_input = torch.zeros([1, 235199])
-        for i in range(len(speech[0])-1):
-            audio_input[0,i] = speech[0,i]
-        speech = audio_input
+        target_length = 235199
+        from utils.common_utils import padding_audio_vanilla
+        speech, lengths = padding_audio_vanilla(speech, target_length)
 
         batch = {"speech": speech, "speech_lengths": lengths}
         logging.info("speech length: " + str(speech.size(1)))
@@ -437,7 +432,8 @@ class Speech2Text:
             torch.onnx.export(self.asr_model, (speech, feats, feats_lengths), onnx_model, export_params=True, opset_version=12,do_constant_folding=True,input_names = ['speech', 'feats', 'feats_lengths'], output_names = ['encoder_out', 'encoder_out_lens'])
         logging.info(f'ONNX model has been exported at: {onnx_model}')
 
-
+        sys.exit()
+        
         # Trace the model without stft
         traced_model_wo_stft_name = 'traced_conformer_without_stft.pt'
         traced_model = os.path.join(os.getcwd(), traced_model_wo_stft_name)
@@ -447,7 +443,6 @@ class Speech2Text:
             torch.jit.save(traced_model, traced_model_wo_stft_name)
         logging.info(f'Traced Model has been saved at: {traced_model}')
 
-        sys.exit()
 
         enc, enc_olens = self.asr_model(**batch)  # @ME encode context to asr_model's forward. Then replace self.asr_model.encode() -> self.asr_model
         if self.multi_asr:

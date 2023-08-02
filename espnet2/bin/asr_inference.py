@@ -405,12 +405,9 @@ class Speech2Text:
 
         # data: (Nsamples,) -> (1, Nsamples)
         speech = speech.unsqueeze(0).to(getattr(torch, self.dtype))
+
         # Modify from the various length to the fixed length for the input
-
-        import math
-        torch.set_printoptions(threshold=math.inf)
         target_length = 235199
-
         from utils.common_utils import padding_audio_vanilla
         speech, lengths = padding_audio_vanilla(speech, target_length)
 

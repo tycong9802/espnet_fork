@@ -3,7 +3,7 @@ import torch.nn.functional as F
 
 def padding_audio_vanilla(speech, target_length):
     audio_input = torch.zeros([1, target_length])
-    for i in range(len(speech[0])-1):
+    for i in range(len(speech[0])):
         audio_input[0,i] = speech[0,i]
     speech = audio_input
     return speech, torch.tensor([speech.size(1)])

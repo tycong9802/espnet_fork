@@ -10,7 +10,7 @@ def padding_audio_vanilla(speech, target_length):
     return speech, torch.tensor([speech.size(1)])
 
 
-def padding_audio_repeat_head(speech, target_length):
+def padding_audio_repeat_head(speech, target_length, repeat_head_length):
     audio_input = torch.zeros([1, target_length])
     for i in range(len(speech[0])):
         audio_input[0,i] = speech[0,i]
@@ -18,15 +18,13 @@ def padding_audio_repeat_head(speech, target_length):
     import math
     torch.set_printoptions(threshold=math.inf)
 
-    # TODO: Adjust the value of the range for j
-    head_length = 500
-    speech_head = torch.zeros([1, head_length])
+    speech_head = torch.zeros([1, repeat_head_length])
 
-    for i in range(head_length):
+    for i in range(repeat_head_length):
         speech_head[0, i] = speech[0,i]
 
-    for i in range(len(speech[0]),target_length, head_length):
-        for j in range(head_length):
+    for i in range(len(speech[0]),target_length, repeat_head_length):
+        for j in range(repeat_head_length):
             audio_input[0, i] = speech_head[0, j]
 
     speech = audio_input

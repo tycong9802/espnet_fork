@@ -377,8 +377,6 @@ class Speech2Text:
         self.multi_asr = multi_asr
         self.onnx_inference = onnx_inference
 
-    
-
     @torch.no_grad()
     def __call__(
         self, speech: Union[torch.Tensor, np.ndarray]
@@ -408,26 +406,30 @@ class Speech2Text:
 
         # Modify from the various length to the fixed length for the input
         target_length = 235199
-        from utils.common_utils import padding_audio_vanilla
-        speech, lengths = padding_audio_vanilla(speech, target_length)
+        from utils.common_utils import padding_audio_repeat_head
+        speech, lengths = padding_audio_repeat_head(speech, target_length)
 
         feats, feats_lengths = self._extract_feats(speech, lengths)
+
         def to_numpy(tensor):
             return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
 
         if self.onnx_inference:
             # Inference on the ONNX model
             logging.info('Do inference based on the ONNX model!')
-            import os, onnxruntime
+            import os
+            import onnxruntime
             onnx_model_name = 'conformer_without_stft.onnx'
             onnx_model = os.path.join(os.getcwd(), onnx_model_name)
             if not os.path.exists(onnx_model):
-                logging.info(f'CANNOT find the ONNX model: {onnx_model}! Please export the model first, using the bash script `run.sh` with the option `--model_exporting true`')
+                logging.info(
+                    f'CANNOT find the ONNX model: {onnx_model}! Please export the model first, using the bash script `run.sh` with the option `--model_exporting true`')
                 sys.exit()
 
             batch = {"feats":to_numpy(feats)}
 
-            session = onnxruntime.InferenceSession(onnx_model, providers=['CPUExecutionProvider'])
+            session = onnxruntime.InferenceSession(
+                onnx_model, providers=['CPUExecutionProvider'])
             enc, enc_olens = session.run(None, batch)
             enc = torch.Tensor(enc)
             enc_olens = torch.Tensor(enc_olens)
@@ -441,9 +443,10 @@ class Speech2Text:
             traced_model_wo_stft_name = 'traced_conformer_without_stft.pt'
             traced_model = os.path.join(os.getcwd(), traced_model_wo_stft_name)
             if not os.path.exists(traced_model):
-                logging.info(f'CANNOT find the PyTorch model (*.pt): {onnx_model}! Please export the model first, using the bash script `run.sh` with the option `--model_exporting true`')
+                logging.info(
+                    f'CANNOT find the PyTorch model (*.pt): {onnx_model}! Please export the model first, using the bash script `run.sh` with the option `--model_exporting true`')
                 sys.exit()
-            
+
             batch = {"speech": speech, "feats":feats, "feats_lengths": feats_lengths}
             batch = to_device(batch, device=self.device)
             loaded_model = torch.load(traced_model)
@@ -493,7 +496,6 @@ class Speech2Text:
 
         return results
 
-
     def _extract_feats(
         self, speech: torch.Tensor, speech_lengths: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -513,7 +515,6 @@ class Speech2Text:
         #     feats, feats_lengths = speech, speech_lengths
         feats, feats_lengths = self.frontend(speech, speech_lengths)
         return feats, feats_lengths
-
 
     def _decode_interctc(
         self, intermediate_outs: List[Tuple[int, torch.Tensor]]
@@ -1022,17 +1023,17 @@ def get_parser():
     )
 
     parser.add_argument(
-    "--onnx_inference",
-    type=str2bool,
-    default=True,
-    help="Inference based on the exported ONNX model if True. Otherwise, do the inference on the traced PyTorch model.",
+        "--onnx_inference",
+        type=str2bool,
+        default=True,
+        help="Inference based on the exported ONNX model if True. Otherwise, do the inference on the traced PyTorch model.",
     )
 
     return parser
 
 
 def main(cmd=None):
-    
+
     print(get_commandline_args(), file=sys.stderr)
     parser = get_parser()
     args = parser.parse_args(cmd)

@@ -429,22 +429,24 @@ class Speech2Text:
         onnx_model_name = 'conformer_without_stft.onnx'
         onnx_model = os.path.join(os.getcwd(), onnx_model_name)
         if not os.path.exists(onnx_model):
-            torch.onnx.export(self.asr_model, (speech, feats, feats_lengths), onnx_model, export_params=True, opset_version=12,do_constant_folding=True,input_names = ['speech', 'feats', 'feats_lengths'], output_names = ['encoder_out', 'encoder_out_lens'])
+            torch.onnx.export(self.asr_model, (speech, feats, feats_lengths), onnx_model, export_params=True, opset_version=12,
+                              do_constant_folding=True,input_names=['speech', 'feats', 'feats_lengths'], output_names=['encoder_out', 'encoder_out_lens'])
         logging.info(f'ONNX model has been exported at: {onnx_model}')
 
         sys.exit()
-        
+
         # Trace the model without stft
         traced_model_wo_stft_name = 'traced_conformer_without_stft.pt'
         traced_model = os.path.join(os.getcwd(), traced_model_wo_stft_name)
         if not os.path.exists(traced_model):
-            traced_model = torch.jit.trace(self.asr_model, (speech, feats, feats_lengths))
+            traced_model = torch.jit.trace(
+                self.asr_model, (speech, feats, feats_lengths))
             traced_model = traced_model.to(self.device)
             torch.jit.save(traced_model, traced_model_wo_stft_name)
         logging.info(f'Traced Model has been saved at: {traced_model}')
 
-
-        enc, enc_olens = self.asr_model(**batch)  # @ME encode context to asr_model's forward. Then replace self.asr_model.encode() -> self.asr_model
+        # @ME encode context to asr_model's forward. Then replace self.asr_model.encode() -> self.asr_model
+        enc, enc_olens = self.asr_model(**batch)
         if self.multi_asr:
             enc = enc.unbind(dim=1)  # (batch, num_inf, ...) -> num_inf x [batch, ...]
         if self.enh_s2t_task or self.multi_asr:
@@ -486,7 +488,6 @@ class Speech2Text:
 
         return results
 
-
     def _extract_feats(
         self, speech: torch.Tensor, speech_lengths: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -506,7 +507,6 @@ class Speech2Text:
         #     feats, feats_lengths = speech, speech_lengths
         feats, feats_lengths = self.frontend(speech, speech_lengths)
         return feats, feats_lengths
-
 
     def _decode_interctc(
         self, intermediate_outs: List[Tuple[int, torch.Tensor]]

@@ -407,7 +407,7 @@ class Speech2Text:
         # Modify from the various length to the fixed length for the input
         target_length = 235199
         from utils.common_utils import padding_audio_repeat_head
-        speech, lengths = padding_audio_repeat_head(speech, target_length, 500)
+        speech, lengths = padding_audio_repeat_head(speech, target_length, 1500)
 
         feats, feats_lengths = self._extract_feats(speech, lengths)
 

@@ -403,6 +403,7 @@ class Speech2Text:
         # data: (Nsamples,) -> (1, Nsamples)
         speech = speech.unsqueeze(0).to(getattr(torch, self.dtype))
 
+        # TODO: To replace this hard-coded target_length(maximum)
         target_length = 235199
         from utils.common_utils import padding_audio_vanilla
         speech, lengths = padding_audio_vanilla(speech, target_length)
@@ -444,49 +445,6 @@ class Speech2Text:
             traced_model = traced_model.to(self.device)
             torch.jit.save(traced_model, traced_model_wo_stft_name)
         logging.info(f'Traced Model has been saved at: {traced_model}')
-
-        # @ME encode context to asr_model's forward. Then replace self.asr_model.encode() -> self.asr_model
-        enc, enc_olens = self.asr_model(**batch)
-        if self.multi_asr:
-            enc = enc.unbind(dim=1)  # (batch, num_inf, ...) -> num_inf x [batch, ...]
-        if self.enh_s2t_task or self.multi_asr:
-            # Enh+ASR joint task or Multispkr ASR task
-            # NOTE (Wangyou): the return type in this case is List[default_return_type]
-            if self.multi_asr:
-                num_spk = getattr(self.asr_model, "num_inf", 1)
-            else:
-                num_spk = getattr(self.asr_model.enh_model, "num_spk", 1)
-            assert len(enc) == num_spk, (len(enc), num_spk)
-            results = []
-            for spk, enc_spk in enumerate(enc, 1):
-                logging.info(f"=== [{str(self.asr_model.__class__)}] Speaker {spk} ===")
-                if isinstance(enc_spk, tuple):
-                    enc_spk = enc_spk[0]
-                assert len(enc_spk) == 1, len(enc_spk)
-
-                # c. Passed the encoder result and the beam search
-                ret = self._decode_single_sample(enc_spk[0])
-                assert check_return_type(ret)
-                results.append(ret)
-
-        else:
-            # Normal ASR
-            intermediate_outs = None
-            if isinstance(enc, tuple):
-                intermediate_outs = enc[1]
-                enc = enc[0]
-            assert len(enc) == 1, len(enc)
-
-            # c. Passed the encoder result and the beam search
-            results = self._decode_single_sample(enc[0])
-
-            # Encoder intermediate CTC predictions
-            if intermediate_outs is not None:
-                encoder_interctc_res = self._decode_interctc(intermediate_outs)
-                results = (results, encoder_interctc_res)
-            assert check_return_type(results)
-
-        return results
 
     def _extract_feats(
         self, speech: torch.Tensor, speech_lengths: torch.Tensor

@@ -405,6 +405,7 @@ class Speech2Text:
         speech = speech.unsqueeze(0).to(getattr(torch, self.dtype))
 
         # Modify from the various length to the fixed length for the input
+        # TODO: To replace this hard-coded target_length(maximum)
         target_length = 235199
         from utils.common_utils import padding_audio_repeat_sentances
         speech, lengths = padding_audio_repeat_sentances(speech, target_length)

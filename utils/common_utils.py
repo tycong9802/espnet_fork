@@ -15,8 +15,8 @@ def padding_audio_repeat_head(speech, target_length, repeat_head_length):
     for i in range(len(speech[0])):
         audio_input[0,i] = speech[0,i]
 
-    import math
-    torch.set_printoptions(threshold=math.inf)
+    # import math
+    # torch.set_printoptions(threshold=math.inf)
 
     speech_head = torch.zeros([1, repeat_head_length])
 
@@ -30,6 +30,32 @@ def padding_audio_repeat_head(speech, target_length, repeat_head_length):
     speech = audio_input
     # print(f'DEBUG: speech = {speech}')
     return speech, torch.tensor([speech.size(1)])
+
+
+def padding_audio_repeat_sentances(source_tensor, target_length):
+    # import math
+    # torch.set_printoptions(threshold=math.inf)
+    target_data = torch.zeros(1, target_length)
+
+    # source_tensor = source_tensor.to(target_data.device)
+    target_tensor = target_data.to(source_tensor.device)
+
+    # Step 2: Calculate the number of repetitions needed to fill the target tensor
+    num_repetitions = target_tensor.size(1) // source_tensor.size(1)
+
+    # Step 3: Repeat the source tensor along the second dimension to match the target tensor's size
+    repeated_source = source_tensor.repeat(1, num_repetitions)
+
+    # Step 4: Calculate the remaining elements that need to be filled in the target tensor
+    remaining_elements = target_tensor.size(1) - repeated_source.size(1)
+
+    # Step 5: Slice and assign the remaining elements from the repeated source to the target tensor
+    target_tensor[:, :target_tensor.size(
+        1) - remaining_elements] = repeated_source[:, :]
+    target_tensor[:, target_tensor.size(
+        1) - remaining_elements:] = repeated_source[:, :remaining_elements]
+
+    return target_tensor, torch.tensor([target_tensor.size(1)])
 
 
 def padding_audio(input_tensor, desired_shape):

@@ -452,8 +452,8 @@ class Speech2Text:
             batch = to_device(batch, device=self.device)
             loaded_model = torch.load(traced_model)
             enc, enc_olens = loaded_model(**batch)
-            print(f'DEBUG: inf result enc: {enc}')
-            print(f'DEBUG: inf result enc_olens: {enc_olens}')
+            # print(f'DEBUG: inf result enc: {enc}')
+            # print(f'DEBUG: inf result enc_olens: {enc_olens}')
 
         # enc, enc_olens = self.asr_model(**batch)  # @ME encode context to asr_model's forward. Then replace self.asr_model.encode() -> self.asr_model
         if self.multi_asr:

@@ -89,3 +89,12 @@ tools/ice-g2p*
 tools/fairseq*
 tools/featbin*
 tools/miniconda
+
+build/
+tools/boost_1_81_0/
+tools/boost_1_81_0_build/
+tools/kenlm/
+tools/python_user_base/
+tools/boost_1_81_0.tar.bz2
+egs2/aishell/asr1/exp*
+*.onnx

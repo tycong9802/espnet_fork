@@ -42,6 +42,10 @@ from espnet.nets.scorers.ctc import CTCPrefixScorer
 from espnet.nets.scorers.length_bonus import LengthBonus
 from espnet.utils.cli_utils import get_commandline_args
 
+import os
+import pickle
+import fnmatch
+
 try:
     from transformers import AutoModelForSeq2SeqLM
     from transformers.file_utils import ModelOutput
@@ -395,6 +399,7 @@ class Speech2Text:
             text, token, token_int, hyp
 
         """
+        import os
         assert check_argument_types()
 
         # Input as audio signal
@@ -404,11 +409,62 @@ class Speech2Text:
         # data: (Nsamples,) -> (1, Nsamples)
         speech = speech.unsqueeze(0).to(getattr(torch, self.dtype))
 
+        # TODO: Export speech #5 to file
+        dir_path = r'/home/dragon/Documents/COCOGEN-325/espnet_fork/my_temp/'
+        if 0:
+            # Check whether the specified path exists or not
+            isExist = os.path.exists(dir_path)
+            if not isExist:
+                # Create a new directory because it does not exist
+                os.makedirs(dir_path)
+            # Find all pickle files
+            count = len(fnmatch.filter(os.listdir(dir_path), 'speech_*.pkl'))
+            print('File Count: ' + str(count))
+            logging.info('File Count: ' + str(count))
+            # Increase counter
+            count += 1
+
+            # TODO: Check if file exists, if not, create one
+            new_file_name = dir_path + 'speech_' + str(count) + '.pkl'
+            with open(new_file_name, 'wb') as f:
+                pickle.dump(speech, f)
+
+        # Load speech_5 from pickle file
+        speech_5_file_name = dir_path + 'speech_5.pkl'
+        with open(speech_5_file_name, 'rb') as f:
+            speech_5 = pickle.load(f)
+
+        target_length = 235199
+        num_of_0s = 200
+        reserved_pos = 1000
+
+        # logging.info('speech.size():  ' + str(speech.size()))
+        # logging.info('speech.size(0): ' + str(speech.size(0)))
+        # logging.info('speech.size(1): ' + str(speech.size(1)))
+        
+        # logging.info('speech_5.size():  ' + str(speech_5.size()))
+        # logging.info('speech_5.size(0): ' + str(speech_5.size(0)))
+        # logging.info('speech_5.size(1): ' + str(speech_5.size(1)))
+
+        repeat_speech = torch.cat((torch.zeros(1, num_of_0s), speech_5), 1)
+
+        # logging.info('repeat_speech.size():  ' + str(repeat_speech.size()))
+        # logging.info('repeat_speech.size(0): ' + str(repeat_speech.size(0)))
+        # logging.info('repeat_speech.size(1): ' + str(repeat_speech.size(1)))
+
         # Modify from the various length to the fixed length for the input
         # TODO: To replace this hard-coded target_length(maximum)
-        target_length = 235199
-        from utils.common_utils import padding_audio_repeat_sentances
-        speech, lengths = padding_audio_repeat_sentances(speech, target_length)
+        
+        # from utils.common_utils import padding_audio_repeat_sentances
+        # speech, lengths = padding_audio_repeat_sentances(speech, target_length)
+
+        # TODO: Create a new padding function (speech, speech#5, the number of 0s, target_length)
+        #       1. Add 0s after speech (#1, #2, #3, #4, #5)
+        #       2. Add speech #5 to the end of the step 1
+        #       3. Repeat step 1 and 2 until the length is equal to target_length
+        #       4. Return the padding speech (speech #3, 0...0, speech #5, 0...0, speech#5)
+        from utils.common_utils import padding_audio_with_0s_and_speech5
+        speech, lengths = padding_audio_with_0s_and_speech5(speech, target_length, repeat_speech, reserved_pos)
 
         feats, feats_lengths = self._extract_feats(speech, lengths)
 

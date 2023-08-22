@@ -68,6 +68,43 @@ def padding_audio_repeat_sentances(source_tensor, target_length):
     return target_tensor, torch.tensor([target_tensor.size(1)])
 
 
+def padding_audio_repeat_specified_sentance(source_tensor, specified_tensor, target_length):
+    # import math
+    # torch.set_printoptions(threshold=math.inf)
+    target_data = torch.zeros(1, target_length)
+    source_shape = source_tensor.shape
+    target_data[:, :source_shape[1]] = source_tensor
+
+    # source_tensor = source_tensor.to(target_data.device)
+    target_tensor = target_data.to(source_tensor.device)
+
+    # Updated version: Step 1: Reserving multiple 0s before padding the repeated sentences
+    num_of_zeros = 100
+    tensor_zeros = torch.zeros(1, num_of_zeros)
+    concat_tensor = torch.cat((tensor_zeros, specified_tensor) ,dim=1)
+
+    # Step 2: Calculate the number of repetitions needed to fill the target tensor
+    num_repetitions = (target_tensor.size(
+        1) - source_tensor.size(1)) // concat_tensor.size(1)
+
+    # Step 3: Repeat the source tensor along the second dimension to match the target tensor's size
+    repeated_source = concat_tensor.repeat(1, num_repetitions)
+
+    # Step 4: Calculate the remaining elements that need to be filled in the target tensor
+    remaining_elements = target_tensor.size(
+        1) - source_tensor.size(1) - repeated_source.size(1)
+
+    # Step 5: Slice and assign the remaining elements from the repeated source to the target tensor
+    target_tensor[:, :target_tensor.size(
+        1) - remaining_elements - source_tensor.size(1)] = repeated_source[:, :]
+
+    remaining_tensor = torch.zeros(1, remaining_elements)
+    target_tensor[:, target_tensor.size(
+        1) - remaining_elements - source_tensor.szie(1):] = remaining_tensor[:, :remaining_elements]
+
+    return target_tensor, torch.tensor([target_tensor.size(1)])
+
+
 def padding_audio(input_tensor, desired_shape):
     # padding = desired_shape[1] - input_tensor.size(1)
     padding_needed = [max(desired_shape[i] - input_tensor[i].shape, 0)

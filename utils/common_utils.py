@@ -100,7 +100,7 @@ def padding_audio_repeat_specified_sentance(source_tensor, specified_tensor, tar
 
     remaining_tensor = torch.zeros(1, remaining_elements)
     target_tensor[:, target_tensor.size(
-        1) - remaining_elements - source_tensor.szie(1):] = remaining_tensor[:, :remaining_elements]
+        1) - remaining_elements:] = remaining_tensor[:, :remaining_elements]
 
     return target_tensor, torch.tensor([target_tensor.size(1)])
 

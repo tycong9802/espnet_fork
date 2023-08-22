@@ -629,6 +629,26 @@ class Speech2Text:
             # remove blank symbol id, which is assumed to be 0
             token_int = list(filter(lambda x: x != 0, token_int))
 
+            # TODO: To post-process/cutoff the toek_int here!!
+            def find_first_occurrence(list1, list2):
+                for i in range(len(list1) - len(list2) + 1):
+                    if list1[i:i + len(list2)] == list2:
+                        return i
+                return -1
+
+            def remove_elements_after_index(lst, index):
+                res_list = []
+                if index < 0 or index >= len(lst):
+                    return  # Invalid index, no action needed
+
+                # Keep the elements up to the specified index (inclusive)
+                res_list[:] = lst[:index]
+                return res_list
+
+            specified_list = [61, 20, 19, 32, 204]
+            token_int = remove_elements_after_index(
+                token_int, find_first_occurrence(token_int, specified_list))
+
             # Change integer-ids to tokens
             token = self.converter.ids2tokens(token_int)
 

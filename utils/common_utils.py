@@ -95,13 +95,8 @@ def padding_audio_repeat_specified_sentance(source_tensor, specified_tensor, tar
         1) - source_tensor.size(1) - repeated_source.size(1)
 
     # Step 5: Slice and assign the remaining elements from the repeated source to the target tensor
-    # TODO: Bug here?
     target_tensor[:, source_tensor.size(1):target_tensor.size(
         1) - remaining_elements] = repeated_source[:, :]
-
-    # remaining_tensor = torch.zeros(1, remaining_elements)
-    # target_tensor[:, target_tensor.size(
-    #     1) - remaining_elements:] = remaining_tensor[:, :remaining_elements]
 
     return target_tensor, torch.tensor([target_tensor.size(1)])
 

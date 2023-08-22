@@ -437,7 +437,7 @@ class Speech2Text:
                 pickle.dump(speech, f)
             count -= 1
 
-        # Load speech_5 from pickle file
+        # Load a specified from pickle file (Currently load the speech "BAC009S0764W0141.wav" from the test dataset for repeated padding)
         specific_speech_name = dir_path + 'speech_1.pkl'
         with open(specific_speech_name, 'rb') as f:
             specific_speech = pickle.load(f)

@@ -79,9 +79,9 @@ def padding_audio_repeat_specified_sentance(source_tensor, specified_tensor, tar
     target_tensor = target_data.to(source_tensor.device)
 
     # Updated version: Step 1: Reserving multiple 0s before padding the repeated sentences
-    num_of_zeros = 100
+    num_of_zeros = 1000
     tensor_zeros = torch.zeros(1, num_of_zeros)
-    concat_tensor = torch.cat((tensor_zeros, specified_tensor) ,dim=1)
+    concat_tensor = torch.cat((specified_tensor, tensor_zeros) ,dim=1)
 
     # Step 2: Calculate the number of repetitions needed to fill the target tensor
     num_repetitions = (target_tensor.size(

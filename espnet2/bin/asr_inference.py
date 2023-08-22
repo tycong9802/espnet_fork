@@ -442,7 +442,6 @@ class Speech2Text:
         with open(specific_speech_name, 'rb') as f:
             specific_speech = pickle.load(f)
 
-        # TODO: to find out the specific_speech
         speech, lengths = padding_audio_repeat_specified_sentance(
             speech, specific_speech, target_length)
 

@@ -409,8 +409,42 @@ class Speech2Text:
         target_length = 235199
         import math
         torch.set_printoptions(threshold=math.inf)
-        from utils.common_utils import padding_audio_repeat_sentances
-        speech, lengths = padding_audio_repeat_sentances(speech, target_length)
+        # from utils.common_utils import padding_audio_repeat_sentances
+        # speech, lengths = padding_audio_repeat_sentances(speech, target_length)
+        from utils.common_utils import padding_audio_repeat_specified_sentance
+
+        # TODO: To eliminate this hard-coded path
+        dir_path = r'/home/zhu05/scratch/2-working/espnet_conformer/espnet_fork/egs2/aishell/asr1/downloads/data_aishell/wav/test/S0764/'
+
+        import pickle
+        import fnmatch
+        import os
+        count = len(fnmatch.filter(os.listdir(dir_path), '*.wav'))
+        if 0:
+            # Check whether the specified path exists or not
+            isExist = os.path.exists(dir_path)
+            if not isExist:
+                # Create a new directory because it does not exist
+                os.makedirs(dir_path)
+            # Find all pickle files
+            # count = len(fnmatch.filter(os.listdir(dir_path), 'speech_*.pkl'))
+            print('File Count: ' + str(count))
+            logging.info('File Count: ' + str(count))
+
+            # TODO: Check if file exists, if not, create one
+            new_file_name = dir_path + 'speech_' + str(count) + '.pkl'
+            with open(new_file_name, 'wb') as f:
+                pickle.dump(speech, f)
+            count -= 1
+
+        # Load speech_5 from pickle file
+        specific_speech_name = dir_path + 'speech_1.pkl'
+        with open(specific_speech_name, 'rb') as f:
+            specific_speech = pickle.load(f)
+
+        # TODO: to find out the specific_speech
+        speech, lengths = padding_audio_repeat_specified_sentance(
+            speech, specific_speech, target_length)
 
         feats, feats_lengths = self._extract_feats(speech, lengths)
 

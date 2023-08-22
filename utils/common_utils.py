@@ -35,7 +35,10 @@ def padding_audio_repeat_head(speech, target_length, repeat_head_length):
 def padding_audio_repeat_sentances(source_tensor, target_length):
     # import math
     # torch.set_printoptions(threshold=math.inf)
+    # TODO: Fix the initialization for target_data!
     target_data = torch.zeros(1, target_length)
+    source_shape = source_tensor.shape
+    target_data[:, :source_shape[1]] = source_tensor
 
     # source_tensor = source_tensor.to(target_data.device)
     target_tensor = target_data.to(source_tensor.device)
@@ -44,17 +47,21 @@ def padding_audio_repeat_sentances(source_tensor, target_length):
     reserved_pos = 2000
 
     # Step 2: Calculate the number of repetitions needed to fill the target tensor
-    num_repetitions = (target_tensor.size(1) - reserved_pos) // source_tensor.size(1)
+    num_repetitions = (target_tensor.size(1) - reserved_pos
+                       - source_tensor.size(1)) // source_tensor.size(1)
 
     # Step 3: Repeat the source tensor along the second dimension to match the target tensor's size
     repeated_source = source_tensor.repeat(1, num_repetitions)
 
     # Step 4: Calculate the remaining elements that need to be filled in the target tensor
-    remaining_elements = target_tensor.size(1) - repeated_source.size(1) - reserved_pos
+    remaining_elements = target_tensor.size(
+        1) - repeated_source.size(1) - reserved_pos - source_tensor.size(1)
 
     # Step 5: Slice and assign the remaining elements from the repeated source to the target tensor
-    target_tensor[:, reserved_pos:target_tensor.size(
+    # TODO:Fix the padding bug! Currently 0s have been padded at the beginning of the sentence instead of the end for the 1st appearance
+    target_tensor[:, reserved_pos + source_tensor.size(1):target_tensor.size(
         1) - remaining_elements] = repeated_source[:, :]
+
     target_tensor[:, target_tensor.size(
         1) - remaining_elements:] = repeated_source[:, :remaining_elements]
 

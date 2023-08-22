@@ -407,6 +407,8 @@ class Speech2Text:
         # Modify from the various length to the fixed length for the input
         # TODO: To replace this hard-coded target_length(maximum)
         target_length = 235199
+        import math
+        torch.set_printoptions(threshold=math.inf)
         from utils.common_utils import padding_audio_repeat_sentances
         speech, lengths = padding_audio_repeat_sentances(speech, target_length)
 

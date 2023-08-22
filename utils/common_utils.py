@@ -35,7 +35,6 @@ def padding_audio_repeat_head(speech, target_length, repeat_head_length):
 def padding_audio_repeat_sentances(source_tensor, target_length):
     # import math
     # torch.set_printoptions(threshold=math.inf)
-    # TODO: Fix the initialization for target_data!
     target_data = torch.zeros(1, target_length)
     source_shape = source_tensor.shape
     target_data[:, :source_shape[1]] = source_tensor
@@ -58,7 +57,6 @@ def padding_audio_repeat_sentances(source_tensor, target_length):
         1) - repeated_source.size(1) - reserved_pos - source_tensor.size(1)
 
     # Step 5: Slice and assign the remaining elements from the repeated source to the target tensor
-    # TODO:Fix the padding bug! Currently 0s have been padded at the beginning of the sentence instead of the end for the 1st appearance
     target_tensor[:, reserved_pos + source_tensor.size(1):target_tensor.size(
         1) - remaining_elements] = repeated_source[:, :]
 

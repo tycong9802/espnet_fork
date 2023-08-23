@@ -417,8 +417,10 @@ class Speech2Text:
         import os
         import pickle
 
+        # specific_speech_name = os.path.join(
+        #     r'/home/zhu/scratch/espnet_fork/pickle', 'BAC009S0723W0444.pkl')
         specific_speech_name = os.path.join(
-            r'/home/zhu05/scratch/2-working/espnet_conformer/espnet_fork/pikles', 'BAC009S0723W0444.pkl')
+            os.path.join(os.getcwd()), 'BAC009S0764W0141.pkl')
         with open(specific_speech_name, 'rb') as f:
             specific_speech = pickle.load(f)
 
@@ -609,27 +611,51 @@ class Speech2Text:
             # remove blank symbol id, which is assumed to be 0
             token_int = list(filter(lambda x: x != 0, token_int))
 
-            # #######################################
-            # # Post-process/cutoff the toek_int here!!
-            # def find_first_occurrence(list1, list2):
-            #     for i in range(len(list1) - len(list2) + 1):
-            #         if list1[i:i + len(list2)] == list2:
-            #             return i
-            #     return -1
+            #######################################
+            # Post-process/cutoff the toek_int here!!
 
-            # def remove_elements_after_index(lst, index):
-            #     res_list = []
-            #     if index < 0 or index >= len(lst):
-            #         return  # Invalid index, no action needed
+            def is_similar_element(a, b, percentage_error=0.05):
+                lower_bound = b * (1 - percentage_error)
+                upper_bound = b * (1 + percentage_error)
+                return lower_bound <= a <= upper_bound
 
-            #     # Keep the elements up to the specified index (inclusive)
-            #     res_list[:] = lst[:index]
-            #     return res_list
+            def find_matching_indices_with_error(list1, list2, min_length=3, max_length=6):
+                result_indices = []
 
-            # specified_list = [132, 19, 158]
-            # token_int = remove_elements_after_index(
-            #     token_int, find_first_occurrence(token_int, specified_list))
-            # ######################################
+                for i in range(len(list1) - len(list2) + 1):
+                    match_count = 0
+                    for j in range(len(list2)):
+                        if is_similar_element(list1[i + j], list2[j]):
+                            match_count += 1
+                    if min_length <= match_count <= max_length:
+                        result_indices.append(i)
+                
+                if len(result_indices) > 0:
+                    return result_indices[0]
+                else:
+                    return -1
+            
+            def find_first_occurrence(list1, list2):
+                for i in range(len(list1) - len(list2) + 1):
+                    if list1[i:i + len(list2)] == list2:
+                        return i
+                return -1
+
+            def remove_elements_after_index(lst, index):
+                res_list = []
+                if index < 0 or index >= len(lst):
+                    return  # Invalid index, no action needed
+
+                # Keep the elements up to the specified index (inclusive)
+                res_list[:] = lst[:index]
+                return res_list
+
+            specified_list = [61, 20, 19, 32, 204, 19]
+            removal_index = find_matching_indices_with_error(token_int, specified_list)
+            if removal_index != -1:
+                token_int = remove_elements_after_index(
+                    token_int, removal_index)
+            ######################################
 
             # Change integer-ids to tokens
             token = self.converter.ids2tokens(token_int)

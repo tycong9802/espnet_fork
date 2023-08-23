@@ -432,13 +432,14 @@ class Speech2Text:
             logging.info('File Count: ' + str(count))
 
             # TODO: Check if file exists, if not, create one
-            new_file_name = dir_path + 'speech_' + str(count) + '.pkl'
+            new_file_name = dir_path + 'BAC009S0764W0141' + str(count) + '.pkl'
             with open(new_file_name, 'wb') as f:
                 pickle.dump(speech, f)
             count -= 1
 
         # Load a specified from pickle file (Currently load the speech "BAC009S0764W0141.wav" from the test dataset for repeated padding)
-        specific_speech_name = dir_path + 'speech_1.pkl'
+        import os
+        specific_speech_name = os.path.join(os.getcwd(), 'BAC009S0764W0141.pkl')
         with open(specific_speech_name, 'rb') as f:
             specific_speech = pickle.load(f)
 

@@ -413,33 +413,15 @@ class Speech2Text:
         # speech, lengths = padding_audio_repeat_sentances(speech, target_length)
         from utils.common_utils import padding_audio_repeat_specified_sentance
 
-        # TODO: To eliminate this hard-coded path
-        dir_path = r'/home/zhu05/scratch/2-working/espnet_conformer/espnet_fork/egs2/aishell/asr1/downloads/data_aishell/wav/test/S0764/'
-
-        import pickle
-        import fnmatch
-        import os
-        count = len(fnmatch.filter(os.listdir(dir_path), '*.wav'))
-        if 0:
-            # Check whether the specified path exists or not
-            isExist = os.path.exists(dir_path)
-            if not isExist:
-                # Create a new directory because it does not exist
-                os.makedirs(dir_path)
-            # Find all pickle files
-            # count = len(fnmatch.filter(os.listdir(dir_path), 'speech_*.pkl'))
-            print('File Count: ' + str(count))
-            logging.info('File Count: ' + str(count))
-
-            # TODO: Check if file exists, if not, create one
-            new_file_name = dir_path + 'BAC009S0764W0141' + str(count) + '.pkl'
-            with open(new_file_name, 'wb') as f:
-                pickle.dump(speech, f)
-            count -= 1
-
         # Load a specified from pickle file (Currently load the speech "BAC009S0764W0141.wav" from the test dataset for repeated padding)
         import os
-        specific_speech_name = os.path.join(os.getcwd(), 'BAC009S0764W0141.pkl')
+        import pickle
+        import os
+        import fnmatch
+        import pickle
+
+        specific_speech_name = os.path.join(
+            r'/home/zhu05/scratch/2-working/espnet_conformer/espnet_fork/pikles', 'BAC009S0723W0444.pkl')
         with open(specific_speech_name, 'rb') as f:
             specific_speech = pickle.load(f)
 
@@ -630,27 +612,27 @@ class Speech2Text:
             # remove blank symbol id, which is assumed to be 0
             token_int = list(filter(lambda x: x != 0, token_int))
 
-            #######################################
-            # Post-process/cutoff the toek_int here!!
-            def find_first_occurrence(list1, list2):
-                for i in range(len(list1) - len(list2) + 1):
-                    if list1[i:i + len(list2)] == list2:
-                        return i
-                return -1
+            # #######################################
+            # # Post-process/cutoff the toek_int here!!
+            # def find_first_occurrence(list1, list2):
+            #     for i in range(len(list1) - len(list2) + 1):
+            #         if list1[i:i + len(list2)] == list2:
+            #             return i
+            #     return -1
 
-            def remove_elements_after_index(lst, index):
-                res_list = []
-                if index < 0 or index >= len(lst):
-                    return  # Invalid index, no action needed
+            # def remove_elements_after_index(lst, index):
+            #     res_list = []
+            #     if index < 0 or index >= len(lst):
+            #         return  # Invalid index, no action needed
 
-                # Keep the elements up to the specified index (inclusive)
-                res_list[:] = lst[:index]
-                return res_list
+            #     # Keep the elements up to the specified index (inclusive)
+            #     res_list[:] = lst[:index]
+            #     return res_list
 
-            specified_list = [61, 20, 19, 32, 204]
-            token_int = remove_elements_after_index(
-                token_int, find_first_occurrence(token_int, specified_list))
-            #######################################
+            # specified_list = [132, 19, 158]
+            # token_int = remove_elements_after_index(
+            #     token_int, find_first_occurrence(token_int, specified_list))
+            # ######################################
 
             # Change integer-ids to tokens
             token = self.converter.ids2tokens(token_int)
@@ -809,6 +791,18 @@ def inference(
 
     # 7 .Start for-loop
     # FIXME(kamo): The output format should be discussed about
+    import pickle
+
+    def dump_audio_pickle(keys, audio_speeches):
+        import math
+        import os
+        torch.set_printoptions(threshold=math.inf)
+        for i in range(len(keys)):
+            pikle_file_name = keys[i] + '.pkl'
+            with open(os.path.join(r'/home/zhu05/scratch/2-working/espnet_conformer/espnet_fork/pikles', pikle_file_name), 'wb') as f:
+                dump_tensor = audio_speeches['speech'].view(1,-1)
+                pickle.dump(dump_tensor, f)
+
     with DatadirWriter(output_dir) as writer:
         for keys, batch in loader:
             assert isinstance(batch, dict), type(batch)
@@ -816,6 +810,12 @@ def inference(
             _bs = len(next(iter(batch.values())))
             assert len(keys) == _bs, f"{len(keys)} != {_bs}"
             batch = {k: v[0] for k, v in batch.items() if not k.endswith("_lengths")}
+
+            ###################################
+            # If need to generat the pickles, then enable the following piece of code
+            # dump_audio_pickle(keys, batch)
+            # continue
+            ###################################
 
             # N-best list of (text, token, token_int, hyp_object)
             try:

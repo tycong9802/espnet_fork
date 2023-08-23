@@ -416,9 +416,6 @@ class Speech2Text:
         # Load a specified from pickle file (Currently load the speech "BAC009S0764W0141.wav" from the test dataset for repeated padding)
         import os
         import pickle
-        import os
-        import fnmatch
-        import pickle
 
         specific_speech_name = os.path.join(
             r'/home/zhu05/scratch/2-working/espnet_conformer/espnet_fork/pikles', 'BAC009S0723W0444.pkl')

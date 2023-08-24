@@ -86,17 +86,19 @@ def padding_audio_repeat_specified_sentance(source_tensor, specified_tensor, tar
     # Step 2: Calculate the number of repetitions needed to fill the target tensor
     num_repetitions = (target_tensor.size(
         1) - (source_tensor.size(1) + num_of_zeros)) // concat_tensor.size(1)
+    
+    if num_repetitions > 0:
 
-    # Step 3: Repeat the source tensor along the second dimension to match the target tensor's size
-    repeated_source = concat_tensor.repeat(1, num_repetitions)
+        # Step 3: Repeat the source tensor along the second dimension to match the target tensor's size
+        repeated_source = concat_tensor.repeat(1, num_repetitions)
 
-    # Step 4: Calculate the remaining elements that need to be filled in the target tensor
-    remaining_elements = target_tensor.size(
-        1) - (source_tensor.size(1) + num_of_zeros) - repeated_source.size(1)
+        # Step 4: Calculate the remaining elements that need to be filled in the target tensor
+        remaining_elements = target_tensor.size(
+            1) - (source_tensor.size(1) + num_of_zeros) - repeated_source.size(1)
 
-    # Step 5: Slice and assign the remaining elements from the repeated source to the target tensor
-    target_tensor[:, source_tensor.size(1) + num_of_zeros:target_tensor.size(
-        1) - remaining_elements] = repeated_source[:, :]
+        # Step 5: Slice and assign the remaining elements from the repeated source to the target tensor
+        target_tensor[:, source_tensor.size(1) + num_of_zeros:target_tensor.size(
+            1) - remaining_elements] = repeated_source[:, :]
 
     return target_tensor, torch.tensor([target_tensor.size(1)])
 

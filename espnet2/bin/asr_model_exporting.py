@@ -425,17 +425,50 @@ class Speech2Text:
 
         feats, feats_lengths = self._extract_feats(speech, lengths)
         feats, feats_lengths = self.normalize(feats, feats_lengths)
-        feats, feats_lengths = padding_feats(feats, (1, 1838,80))
+        
+        #change frome here ---
+        # feats, feats_lengths = padding_feats(feats, (1, 1838,80)) #length is 1838
 
-        feats = to_device(feats, device=self.device)
-        feats_lengths = to_device(feats_lengths, device=self.device)
+        # feats = to_device(feats, device=self.device)
+        # feats_lengths = to_device(feats_lengths, device=self.device)
 
+        # import os
+        # onnx_model_name = 'conformer_without_stft.onnx'
+        # onnx_model = os.path.join(os.getcwd(), onnx_model_name)
+        # if not os.path.exists(onnx_model):
+        #     torch.onnx.export(self.asr_model, (feats), onnx_model, 
+        #                       export_params=True, opset_version=12,do_constant_folding=True,
+        #                       input_names = ['feats'], output_names = ['encoder_out', 'encoder_out_lens'])
+        # logging.info(f'ONNX model has been exported at: {onnx_model}')
+
+        #to here ----
+
+        #for loop to change the lengths and onnx -------
         import os
-        onnx_model_name = 'conformer_without_stft.onnx'
-        onnx_model = os.path.join(os.getcwd(), onnx_model_name)
-        if not os.path.exists(onnx_model):
-            torch.onnx.export(self.asr_model, (feats), onnx_model, export_params=True, opset_version=12,do_constant_folding=True,input_names = ['feats'], output_names = ['encoder_out', 'encoder_out_lens'])
-        logging.info(f'ONNX model has been exported at: {onnx_model}')
+        original_feats, original_feats_lengths = self._extract_feats(speech, lengths)
+        original_feats, original_feats_lengths = self.normalize(original_feats, original_feats_lengths)
+
+        for i in [2**j for j in range(4)]:
+            # keep the feats value 
+            feats = original_feats.clone()
+            feats_lengths = original_feats_lengths.clone()
+
+            # make sure the input feats_lengths is integer?
+            feats, feats_lengths = padding_feats(feats, (1, 1838//i, 80))
+            feats = to_device(feats, device=self.device)
+            feats_lengths = to_device(feats_lengths, device=self.device)
+
+            onnx_model_name = f'conformer_without_stft_{i}.onnx'
+            onnx_model = os.path.join(os.getcwd(), onnx_model_name)
+            if not os.path.exists(onnx_model):
+                torch.onnx.export(self.asr_model, (feats), onnx_model, 
+                              export_params=True, opset_version=12,do_constant_folding=True,
+                              input_names = ['feats'], output_names = ['encoder_out', 'encoder_out_lens'])
+            logging.info(f'ONNX model has been exported at: {onnx_model}')
+
+
+        
+        
 
 
         # # Trace the model without stft
